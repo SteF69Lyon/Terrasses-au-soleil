@@ -23,15 +23,17 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, favoriteTerraces, 
   const [shake, setShake] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
 
-  const [name, setName] = useState(profile.name);
+  const currentUser = dbService.getAuth().currentUser;
+  const isLogged = !!currentUser;
+
+  // Initialize name: if logged, use profile name. If not, empty string (don't pre-fill "Login")
+  const [name, setName] = useState(isLogged ? profile.name : '');
   const [email, setEmail] = useState(profile.email);
   const [password, setPassword] = useState(profile.password || '');
   const [emailNotifications, setEmailNotifications] = useState(profile.emailNotifications);
   const [preferredType, setPreferredType] = useState(profile.preferredType);
   const [preferredSunLevel, setPreferredSunLevel] = useState(profile.preferredSunLevel);
 
-  const currentUser = dbService.getAuth().currentUser;
-  const isLogged = !!currentUser;
   const isPro = profile.isSubscribed;
   const isAdmin = isLogged && dbService.isAdmin(profile.email);
 
@@ -122,7 +124,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, favoriteTerraces, 
             </div>
             <div>
               <h2 className="text-3xl font-black tracking-tight">
-                {isLogged ? profile.name : authMode === 'login' ? 'Connexion' : 'Bienvenue'}
+                {isLogged ? profile.name : authMode === 'login' ? 'Login' : 'Bienvenue'}
               </h2>
               <p className="text-orange-200 text-sm font-medium">
                 {isAdmin ? 'Administrateur Système' : isLogged ? (isPro ? 'Membre Premium' : 'Utilisateur gratuit') : 'Le soleil vous attend.'}

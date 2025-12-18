@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const currentTimeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace('h', ':');
 
   const [profile, setProfile] = useState<UserProfile>({
-    name: 'Explorateur',
+    name: 'Login',
     email: '',
     isSubscribed: false,
     emailNotifications: false,
@@ -63,7 +63,7 @@ const App: React.FC = () => {
       } else {
         setCurrentUserUid(null);
         setProfile({
-          name: 'Explorateur',
+          name: 'Login',
           email: '',
           isSubscribed: false,
           emailNotifications: false,
@@ -199,7 +199,7 @@ const App: React.FC = () => {
               <div className={`w-7 h-7 rounded-xl flex items-center justify-center text-[10px] font-black ${
                 currentUserUid ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-600'
               }`}>
-                {profile.name.charAt(0).toUpperCase()}
+                {currentUserUid ? profile.name.charAt(0).toUpperCase() : <i className="fas fa-user"></i>}
               </div>
               <div className="flex flex-col items-start leading-none">
                 <span className="text-xs">{profile.name}</span>
