@@ -44,33 +44,46 @@ class DatabaseService {
 
   constructor() {
     try {
-      this.app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+      // Vérification de la clé API Gemini pour diagnostic console
+      if (!process.env.API_KEY) {
+        console.warn("ATTENTION: La clé process.env.API_KEY est manquante. Les recherches Gemini ne fonctionneront pas.");
+      }
+
+      // Initialisation atomique de Firebase
+      if (getApps().length === 0) {
+        this.app = initializeApp(firebaseConfig);
+      } else {
+        this.app = getApp();
+      }
+      
+      // On initialise les références immédiatement pour éviter le "Component not registered"
       this.auth = getAuth(this.app);
       this.db = getFirestore(this.app);
-      console.log("Firebase ready.");
+      
+      console.log("SoleilTerrasse Database Engine: Online");
     } catch (error) {
-      console.error("Firebase init failed:", error);
+      console.error("Firebase Initialization Critical Error:", error);
       throw error;
     }
   }
 
   private handleAuthError(error: any): string {
-    console.error("Firebase Auth Error:", error.code, error.message);
+    console.error("Auth Exception:", error.code, error.message);
     switch (error.code) {
       case 'auth/configuration-not-found':
-        return "Configuration manquante : Veuillez activer la méthode de connexion 'E-mail/Mot de passe' dans votre console Firebase (Authentication > Sign-in method).";
+        return "ERREUR CONFIGURATION : L'authentification par e-mail n'est pas activée dans votre console Firebase (Authentication > Sign-in method).";
       case 'auth/email-already-in-use':
-        return "Cet e-mail est déjà utilisé par un autre compte.";
+        return "Cette adresse e-mail est déjà rattachée à un compte.";
       case 'auth/invalid-email':
-        return "L'adresse e-mail n'est pas valide.";
+        return "Format d'e-mail invalide.";
       case 'auth/weak-password':
-        return "Le mot de passe est trop court (min. 6 caractères).";
-      case 'auth/user-not-found':
-      case 'auth/wrong-password':
+        return "Mot de passe trop faible (6 caractères minimum).";
       case 'auth/invalid-credential':
-        return "Identifiants incorrects. Veuillez réessayer.";
+        return "Identifiants incorrects.";
+      case 'auth/operation-not-allowed':
+        return "Cette méthode de connexion est désactivée dans Firebase.";
       default:
-        return error.message || "Une erreur inconnue est survenue.";
+        return "Erreur d'accès au service d'authentification.";
     }
   }
 
@@ -107,7 +120,16 @@ class DatabaseService {
       const profileData = await this.fetchProfileByUid(userCredential.user.uid);
       
       if (!profileData) {
-        throw new Error("Profil introuvable en base.");
+        // Fallback si le doc Firestore n'existe pas encore
+        return {
+            name: userCredential.user.displayName || 'Utilisateur',
+            email: userCredential.user.email!,
+            isSubscribed: false,
+            emailNotifications: false,
+            preferredType: EstablishmentType.ALL,
+            preferredSunLevel: 20,
+            favorites: []
+        };
       }
       
       localStorage.setItem('profile', JSON.stringify(profileData));
@@ -133,7 +155,7 @@ class DatabaseService {
       await setDoc(profileRef, safeProfile, { merge: true });
       localStorage.setItem('profile', JSON.stringify(safeProfile));
     } catch (error: any) {
-      console.error("Update error:", error.message);
+      console.error("Firestore Update Error:", error.message);
       throw error;
     }
   }
@@ -147,6 +169,7 @@ class DatabaseService {
       }
       return null;
     } catch (error: any) {
+      console.error("Firestore Fetch Error:", error);
       return null;
     }
   }
@@ -156,7 +179,7 @@ class DatabaseService {
       const profileRef = doc(this.db, "profiles", uid);
       await updateDoc(profileRef, { isSubscribed: status });
     } catch (error) {
-      console.error("Sub error:", error);
+      console.error("Sub Update Error:", error);
     }
   }
 
@@ -171,6 +194,7 @@ class DatabaseService {
         const ads = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Advertisement));
         callback(ads);
       }, (error) => {
+        console.warn("Ads listener skipped (likely permissions or empty):", error.message);
         callback([]);
       });
     } catch (e) {
