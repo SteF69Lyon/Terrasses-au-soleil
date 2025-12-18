@@ -133,7 +133,6 @@ const App: React.FC = () => {
   };
 
   const handleProfileUpdate = (updatedProfile: UserProfile) => {
-    // Le listener onAuthChange s'occupera de la mise à jour globale si nécessaire
     setProfile(updatedProfile);
   };
 
@@ -164,7 +163,7 @@ const App: React.FC = () => {
                 <i className="fas fa-sun text-2xl"></i>
               </div>
               <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-orange-600">
-                SoleilTerrasse
+                Terrasses au soleil
               </h1>
             </div>
             

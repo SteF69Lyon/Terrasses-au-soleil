@@ -180,7 +180,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, favoriteTerraces, 
                 <div className="bg-gradient-to-r from-yellow-500 to-orange-500 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden group">
                   <div className="relative z-10 flex justify-between items-center">
                     <div>
-                      <h3 className="text-xl font-black mb-1">Passez à Soleil Pro</h3>
+                      <h3 className="text-xl font-black mb-1">Découvrez Terrasses Pro</h3>
                       <p className="text-white/80 text-xs">Plus de pubs, alertes email et spots VIP.</p>
                     </div>
                     <button onClick={() => setShowCheckout(true)} className="bg-white text-orange-600 px-6 py-2.5 rounded-2xl font-black text-sm shadow-md hover:scale-105 transition-all">

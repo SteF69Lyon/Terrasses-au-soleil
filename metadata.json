@@ -1,6 +1,6 @@
 {
-  "name": "SoleilTerrasse",
-  "description": "Find the perfect sunny terrace near you. Uses real-time weather and geographical data to calculate sunshine based on building shadows and time of day.",
+  "name": "Terrasses au soleil",
+  "description": "Trouvez la terrasse ensoleillée parfaite près de chez vous. Utilise des données météo et géographiques en temps réel pour calculer l'ensoleillement en fonction de l'ombre des bâtiments et de l'heure de la journée.",
   "requestFramePermissions": [
     "microphone",
     "geolocation"

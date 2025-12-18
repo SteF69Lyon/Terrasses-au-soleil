@@ -37,7 +37,7 @@ const StripeSimulation: React.FC<StripeSimulationProps> = ({ onSuccess, onCancel
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-slate-500 text-sm">S'abonner à</h3>
-                <p className="text-xl font-bold text-slate-800">SoleilTerrasse Pro</p>
+                <p className="text-xl font-bold text-slate-800">Terrasses au soleil Pro</p>
               </div>
               <div className="text-2xl font-black text-slate-900">{amount}</div>
             </div>

@@ -44,23 +44,20 @@ class DatabaseService {
 
   constructor() {
     try {
-      // Vérification de la clé API Gemini pour diagnostic console
       if (!process.env.API_KEY) {
         console.warn("ATTENTION: La clé process.env.API_KEY est manquante. Les recherches Gemini ne fonctionneront pas.");
       }
 
-      // Initialisation atomique de Firebase
       if (getApps().length === 0) {
         this.app = initializeApp(firebaseConfig);
       } else {
         this.app = getApp();
       }
       
-      // On initialise les références immédiatement pour éviter le "Component not registered"
       this.auth = getAuth(this.app);
       this.db = getFirestore(this.app);
       
-      console.log("SoleilTerrasse Database Engine: Online");
+      console.log("Terrasses au soleil Database Engine: Online");
     } catch (error) {
       console.error("Firebase Initialization Critical Error:", error);
       throw error;
@@ -120,7 +117,6 @@ class DatabaseService {
       const profileData = await this.fetchProfileByUid(userCredential.user.uid);
       
       if (!profileData) {
-        // Fallback si le doc Firestore n'existe pas encore
         return {
             name: userCredential.user.displayName || 'Utilisateur',
             email: userCredential.user.email!,
@@ -194,7 +190,7 @@ class DatabaseService {
         const ads = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Advertisement));
         callback(ads);
       }, (error) => {
-        console.warn("Ads listener skipped (likely permissions or empty):", error.message);
+        console.warn("Ads listener skipped:", error.message);
         callback([]);
       });
     } catch (e) {
