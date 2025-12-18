@@ -39,56 +39,52 @@ const ADMIN_EMAIL = 'sflandrin@outlook.com';
 
 class DatabaseService {
   private app: FirebaseApp;
-  private auth: Auth;
-  private db: Firestore;
+  private auth!: Auth;
+  private db!: Firestore;
 
   constructor() {
     try {
-      if (!process.env.API_KEY) {
-        console.warn("ATTENTION: La clé process.env.API_KEY est manquante. Les recherches Gemini ne fonctionneront pas.");
-      }
-
+      // On initialise l'app Firebase
       if (getApps().length === 0) {
         this.app = initializeApp(firebaseConfig);
       } else {
         this.app = getApp();
       }
       
+      // Initialisation immédiate des services
       this.auth = getAuth(this.app);
       this.db = getFirestore(this.app);
       
-      console.log("Terrasses au soleil Database Engine: Online");
+      console.log("Terrasses au soleil : Services Firebase initialisés.");
     } catch (error) {
-      console.error("Firebase Initialization Critical Error:", error);
-      throw error;
+      console.error("Échec critique de l'initialisation Firebase :", error);
+      // On ne jette pas d'erreur pour ne pas bloquer tout le JS de la page
     }
   }
 
   private handleAuthError(error: any): string {
-    console.error("Auth Exception:", error.code, error.message);
+    console.error("Erreur Auth :", error.code);
     switch (error.code) {
       case 'auth/configuration-not-found':
-        return "ERREUR CONFIGURATION : L'authentification par e-mail n'est pas activée dans votre console Firebase (Authentication > Sign-in method).";
+        return "L'authentification par email n'est pas activée dans la console Firebase.";
       case 'auth/email-already-in-use':
-        return "Cette adresse e-mail est déjà rattachée à un compte.";
-      case 'auth/invalid-email':
-        return "Format d'e-mail invalide.";
-      case 'auth/weak-password':
-        return "Mot de passe trop faible (6 caractères minimum).";
+        return "Cet email est déjà utilisé.";
       case 'auth/invalid-credential':
         return "Identifiants incorrects.";
-      case 'auth/operation-not-allowed':
-        return "Cette méthode de connexion est désactivée dans Firebase.";
+      case 'auth/weak-password':
+        return "Mot de passe trop court.";
       default:
-        return "Erreur d'accès au service d'authentification.";
+        return "Erreur d'accès au compte.";
     }
   }
 
   onAuthChange(callback: (user: User | null) => void) {
+    if (!this.auth) return () => {};
     return onAuthStateChanged(this.auth, callback);
   }
 
   async register(name: string, email: string, password: string): Promise<UserProfile> {
+    if (!this.auth) throw new Error("Service indisponible.");
     try {
       const userCredential = await createUserWithEmailAndPassword(this.auth, email, password);
       const user = userCredential.user;
@@ -104,7 +100,6 @@ class DatabaseService {
       };
 
       await setDoc(doc(this.db, "profiles", user.uid), newProfile);
-      localStorage.setItem('profile', JSON.stringify(newProfile));
       return newProfile;
     } catch (error: any) {
       throw new Error(this.handleAuthError(error));
@@ -112,71 +107,50 @@ class DatabaseService {
   }
 
   async login(email: string, password: string): Promise<UserProfile> {
+    if (!this.auth) throw new Error("Service indisponible.");
     try {
       const userCredential = await signInWithEmailAndPassword(this.auth, email, password);
       const profileData = await this.fetchProfileByUid(userCredential.user.uid);
-      
-      if (!profileData) {
-        return {
-            name: userCredential.user.displayName || 'Utilisateur',
-            email: userCredential.user.email!,
-            isSubscribed: false,
-            emailNotifications: false,
-            preferredType: EstablishmentType.ALL,
-            preferredSunLevel: 20,
-            favorites: []
-        };
-      }
-      
-      localStorage.setItem('profile', JSON.stringify(profileData));
-      return profileData;
+      return profileData || {
+        name: userCredential.user.displayName || 'Utilisateur',
+        email: userCredential.user.email!,
+        isSubscribed: false,
+        emailNotifications: false,
+        preferredType: EstablishmentType.ALL,
+        preferredSunLevel: 20,
+        favorites: []
+      };
     } catch (error: any) {
       throw new Error(this.handleAuthError(error));
     }
   }
 
   async logout() {
-    try {
-      await signOut(this.auth);
-      localStorage.removeItem('profile');
-    } catch (e) {
-      console.error("Logout error:", e);
-    }
+    if (this.auth) await signOut(this.auth);
   }
 
   async updateProfile(uid: string, profile: UserProfile): Promise<void> {
+    if (!this.db) return;
     try {
-      const profileRef = doc(this.db, "profiles", uid);
       const { password, ...safeProfile } = profile as any;
-      await setDoc(profileRef, safeProfile, { merge: true });
-      localStorage.setItem('profile', JSON.stringify(safeProfile));
-    } catch (error: any) {
-      console.error("Firestore Update Error:", error.message);
-      throw error;
+      await setDoc(doc(this.db, "profiles", uid), safeProfile, { merge: true });
+    } catch (error) {
+      console.error("Erreur Firestore :", error);
     }
   }
 
   async fetchProfileByUid(uid: string): Promise<UserProfile | null> {
+    if (!this.db) return null;
     try {
-      const docRef = doc(this.db, "profiles", uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        return docSnap.data() as UserProfile;
-      }
-      return null;
-    } catch (error: any) {
-      console.error("Firestore Fetch Error:", error);
+      const docSnap = await getDoc(doc(this.db, "profiles", uid));
+      return docSnap.exists() ? (docSnap.data() as UserProfile) : null;
+    } catch {
       return null;
     }
   }
 
   async setSubscriptionStatus(uid: string, status: boolean): Promise<void> {
-    try {
-      const profileRef = doc(this.db, "profiles", uid);
-      await updateDoc(profileRef, { isSubscribed: status });
-    } catch (error) {
-      console.error("Sub Update Error:", error);
-    }
+    if (this.db) await updateDoc(doc(this.db, "profiles", uid), { isSubscribed: status });
   }
 
   isAdmin(email?: string | null): boolean {
@@ -184,35 +158,27 @@ class DatabaseService {
   }
 
   onAdsChange(callback: (ads: Advertisement[]) => void) {
+    if (!this.db) return () => {};
     try {
       const q = query(collection(this.db, "ads"), orderBy("createdAt", "desc"));
       return onSnapshot(q, (snapshot) => {
-        const ads = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Advertisement));
-        callback(ads);
-      }, (error) => {
-        console.warn("Ads listener skipped:", error.message);
-        callback([]);
-      });
-    } catch (e) {
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Advertisement)));
+      }, () => callback([]));
+    } catch {
       return () => {};
     }
   }
 
   async addAd(text: string, link?: string): Promise<void> {
-    await addDoc(collection(this.db, "ads"), {
-      text,
-      link: link || null,
-      isActive: true,
-      createdAt: Date.now()
-    });
+    if (this.db) await addDoc(collection(this.db, "ads"), { text, link: link || null, isActive: true, createdAt: Date.now() });
   }
 
   async deleteAd(id: string): Promise<void> {
-    await deleteDoc(doc(this.db, "ads", id));
+    if (this.db) await deleteDoc(doc(this.db, "ads", id));
   }
 
   async toggleAdStatus(id: string, currentStatus: boolean): Promise<void> {
-    await updateDoc(doc(this.db, "ads", id), { isActive: !currentStatus });
+    if (this.db) await updateDoc(doc(this.db, "ads", id), { isActive: !currentStatus });
   }
 
   getAuth() { return this.auth; }
