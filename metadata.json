@@ -1,0 +1,8 @@
+{
+  "name": "SoleilTerrasse",
+  "description": "Find the perfect sunny terrace near you. Uses real-time weather and geographical data to calculate sunshine based on building shadows and time of day.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
