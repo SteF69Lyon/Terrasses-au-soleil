@@ -38,43 +38,24 @@ const firebaseConfig = {
 const ADMIN_EMAIL = 'sflandrin@outlook.com';
 
 class DatabaseService {
-  private app: FirebaseApp;
-  private auth!: Auth;
-  private db!: Firestore;
+  private app?: FirebaseApp;
+  private auth?: Auth;
+  private db?: Firestore;
 
   constructor() {
     try {
-      // On initialise l'app Firebase
       if (getApps().length === 0) {
         this.app = initializeApp(firebaseConfig);
       } else {
         this.app = getApp();
       }
       
-      // Initialisation immédiate des services
       this.auth = getAuth(this.app);
       this.db = getFirestore(this.app);
       
-      console.log("Terrasses au soleil : Services Firebase initialisés.");
+      console.log("Terrasses au soleil : Services de données connectés.");
     } catch (error) {
-      console.error("Échec critique de l'initialisation Firebase :", error);
-      // On ne jette pas d'erreur pour ne pas bloquer tout le JS de la page
-    }
-  }
-
-  private handleAuthError(error: any): string {
-    console.error("Erreur Auth :", error.code);
-    switch (error.code) {
-      case 'auth/configuration-not-found':
-        return "L'authentification par email n'est pas activée dans la console Firebase.";
-      case 'auth/email-already-in-use':
-        return "Cet email est déjà utilisé.";
-      case 'auth/invalid-credential':
-        return "Identifiants incorrects.";
-      case 'auth/weak-password':
-        return "Mot de passe trop court.";
-      default:
-        return "Erreur d'accès au compte.";
+      console.warn("Firebase non disponible (mode déconnecté) :", error);
     }
   }
 
@@ -84,7 +65,7 @@ class DatabaseService {
   }
 
   async register(name: string, email: string, password: string): Promise<UserProfile> {
-    if (!this.auth) throw new Error("Service indisponible.");
+    if (!this.auth || !this.db) throw new Error("Service indisponible.");
     try {
       const userCredential = await createUserWithEmailAndPassword(this.auth, email, password);
       const user = userCredential.user;
@@ -102,7 +83,7 @@ class DatabaseService {
       await setDoc(doc(this.db, "profiles", user.uid), newProfile);
       return newProfile;
     } catch (error: any) {
-      throw new Error(this.handleAuthError(error));
+      throw new Error(error.message);
     }
   }
 
@@ -121,7 +102,7 @@ class DatabaseService {
         favorites: []
       };
     } catch (error: any) {
-      throw new Error(this.handleAuthError(error));
+      throw new Error(error.message);
     }
   }
 
