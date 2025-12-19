@@ -2,17 +2,13 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { EstablishmentType, SunLevel, Terrace, UserProfile } from "../types";
 
 export class GeminiService {
-  private _aiInstance: GoogleGenAI | null = null;
-
-  private get ai() {
-    if (this._aiInstance) return this._aiInstance;
+  // On ne met plus en cache l'instance pour s'assurer de récupérer la clé process.env à chaque appel
+  private createAI() {
     try {
-      if (typeof process !== 'undefined' && process.env.API_KEY) {
-        this._aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        return this._aiInstance;
-      }
-      return null;
+      // Accès direct à process.env.API_KEY tel que requis par les guidelines
+      return new GoogleGenAI({ apiKey: process.env.API_KEY });
     } catch (e) {
+      console.error("Erreur initialisation IA:", e);
       return null;
     }
   }
@@ -25,18 +21,16 @@ export class GeminiService {
     lat?: number, 
     lng?: number
   ): Promise<Terrace[]> {
-    const ai = this.ai;
-    if (!ai) {
-      console.warn("Gemini Engine not ready.");
-      return [];
-    }
+    const ai = this.createAI();
+    if (!ai) return [];
 
-    const prompt = `Trouve des terrasses à "${location}" pour le ${date} à ${time}. Type: ${type}.
-    Calcule l'ensoleillement en % selon les ombres portées des bâtiments environnants à cette heure précise.
-    Réponds uniquement un tableau JSON : [{"name": "Nom", "address": "Adresse", "type": "bar|restaurant", "sunExposure": 80, "description": "Texte court", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
+    const prompt = `Trouve des terrasses à "${location}" pour le ${date} à ${time}. Type d'établissement souhaité: ${type}.
+    Calcule précisément l'ensoleillement en pourcentage (0-100%) selon les ombres portées des bâtiments environnants à cette heure précise.
+    Réponds EXCLUSIVEMENT sous forme de tableau JSON valide: 
+    [{"name": "Nom", "address": "Adresse", "type": "bar|restaurant|cafe", "sunExposure": 80, "description": "Brève analyse de l'ombre portée", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
 
     try {
-      // Maps grounding is only supported in Gemini 2.5 series models.
+      // Maps grounding est supporté uniquement sur la série 2.5
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
@@ -51,10 +45,11 @@ export class GeminiService {
       });
 
       const text = response.text || "[]";
+      // Extraction sécurisée du JSON
       const jsonMatch = text.match(/\[.*\]/s);
       const results = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
       
-      // Extract grounding sources as required by Google Maps tool rules
+      // Extraction obligatoire des sources de grounding pour conformité Google
       const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
       const sources = groundingChunks.map((chunk: any) => {
         if (chunk.maps) return { title: chunk.maps.title, uri: chunk.maps.uri };
@@ -76,18 +71,18 @@ export class GeminiService {
         sources: sources.length > 0 ? sources : undefined
       }));
     } catch (e: any) {
-      console.error("IA Search Error:", e?.message || "API request failed");
+      console.error("IA Search Error:", e?.message || "Échec de l'appel IA");
       return [];
     }
   }
 
   async speakDescription(text: string) {
-    const ai = this.ai;
+    const ai = this.createAI();
     if (!ai) return;
     try {
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: `Lis ceci de manière chaleureuse : ${text}` }] }],
+        contents: [{ parts: [{ text: `Dis de manière chaleureuse: ${text}` }] }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
@@ -96,7 +91,7 @@ export class GeminiService {
       const base64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64) this.playRawAudio(base64);
     } catch (e: any) {
-      console.error("TTS Error:", e?.message || "Audio service busy");
+      console.error("TTS Error:", e?.message);
     }
   }
 
@@ -115,19 +110,19 @@ export class GeminiService {
       source.connect(ctx.destination);
       source.start();
     } catch (e) {
-      console.error("Playback error");
+      console.error("Erreur lecture audio");
     }
   }
 
   async connectLiveAssistant(callbacks: any) {
-    const ai = this.ai;
+    const ai = this.createAI();
     if (!ai) throw new Error("IA indisponible");
     return ai.live.connect({
       model: 'gemini-2.5-flash-native-audio-preview-09-2025',
       callbacks,
       config: {
         responseModalities: [Modality.AUDIO],
-        systemInstruction: "Tu es un assistant expert en terrasses. Parle français.",
+        systemInstruction: "Tu es un expert en terrasses. Aide l'utilisateur à trouver le soleil. Réponds en français.",
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } }
       }
     });
