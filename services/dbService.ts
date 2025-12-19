@@ -53,9 +53,9 @@ class DatabaseService {
       this.auth = getAuth(this.app);
       this.db = getFirestore(this.app);
       
-      console.log("Terrasses au soleil : Services de données connectés.");
-    } catch (error) {
-      console.warn("Firebase non disponible (mode déconnecté) :", error);
+      console.log("Database connected.");
+    } catch (error: any) {
+      console.warn("Database initialization skipped:", error?.message || error);
     }
   }
 
@@ -83,7 +83,7 @@ class DatabaseService {
       await setDoc(doc(this.db, "profiles", user.uid), newProfile);
       return newProfile;
     } catch (error: any) {
-      throw new Error(error.message);
+      throw new Error(error?.message || "Erreur d'inscription");
     }
   }
 
@@ -102,7 +102,7 @@ class DatabaseService {
         favorites: []
       };
     } catch (error: any) {
-      throw new Error(error.message);
+      throw new Error(error?.message || "Erreur de connexion");
     }
   }
 
@@ -115,8 +115,8 @@ class DatabaseService {
     try {
       const { password, ...safeProfile } = profile as any;
       await setDoc(doc(this.db, "profiles", uid), safeProfile, { merge: true });
-    } catch (error) {
-      console.error("Erreur Firestore :", error);
+    } catch (error: any) {
+      console.error("Firestore error:", error?.message || error);
     }
   }
 

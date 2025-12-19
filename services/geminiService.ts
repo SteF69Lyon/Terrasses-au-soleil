@@ -3,14 +3,16 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { EstablishmentType, SunLevel, Terrace, UserProfile } from "../types";
 
 export class GeminiService {
-  private get ai(): GoogleGenAI | null {
+  private _aiInstance: GoogleGenAI | null = null;
+
+  private initAI() {
+    if (this._aiInstance) return this._aiInstance;
     try {
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) {
-        console.warn("Clé API Gemini non détectée dans l'environnement.");
-        return null;
-      }
-      return new GoogleGenAI({ apiKey });
+      // Accès strict à process.env.API_KEY tel que requis
+      const apiKey = typeof process !== 'undefined' ? process.env?.API_KEY : undefined;
+      if (!apiKey) return null;
+      this._aiInstance = new GoogleGenAI({ apiKey });
+      return this._aiInstance;
     } catch (e) {
       return null;
     }
@@ -24,9 +26,9 @@ export class GeminiService {
     lat?: number, 
     lng?: number
   ): Promise<Terrace[]> {
-    const model = this.ai;
-    if (!model) {
-      console.error("L'IA n'est pas initialisée.");
+    const ai = this.initAI();
+    if (!ai) {
+      console.warn("AI service not ready (Check API_KEY)");
       return [];
     }
 
@@ -35,7 +37,7 @@ export class GeminiService {
     Réponds uniquement un tableau JSON : [{"name": "Nom", "address": "Adresse", "type": "bar|restaurant", "sunExposure": 80, "description": "Texte court", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
 
     try {
-      const response = await model.models.generateContent({
+      const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
         config: {
@@ -60,17 +62,17 @@ export class GeminiService {
         rating: r.rating || 4.0,
         coordinates: { lat: r.lat || 0, lng: r.lng || 0 }
       }));
-    } catch (e) {
-      console.error("Erreur Gemini lors de la recherche :", e);
+    } catch (e: any) {
+      console.error("Gemini Error:", e?.message || e);
       return [];
     }
   }
 
   async speakDescription(text: string) {
-    const model = this.ai;
-    if (!model) return;
+    const ai = this.initAI();
+    if (!ai) return;
     try {
-      const response = await model.models.generateContent({
+      const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: `Lis ceci de manière chaleureuse : ${text}` }] }],
         config: {
@@ -80,8 +82,8 @@ export class GeminiService {
       });
       const base64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64) this.playRawAudio(base64);
-    } catch (e) {
-      console.error("Erreur TTS :", e);
+    } catch (e: any) {
+      console.error("TTS Error:", e?.message || e);
     }
   }
 
@@ -100,14 +102,14 @@ export class GeminiService {
       source.connect(ctx.destination);
       source.start();
     } catch (e) {
-      console.error("Erreur lecture audio :", e);
+      console.error("Audio playback error");
     }
   }
 
   async connectLiveAssistant(callbacks: any) {
-    const model = this.ai;
-    if (!model) throw new Error("IA indisponible");
-    return model.live.connect({
+    const ai = this.initAI();
+    if (!ai) throw new Error("IA indisponible");
+    return ai.live.connect({
       model: 'gemini-2.5-flash-native-audio-preview-09-2025',
       callbacks,
       config: {
