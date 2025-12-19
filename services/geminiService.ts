@@ -1,18 +1,17 @@
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { EstablishmentType, SunLevel, Terrace, UserProfile } from "../types";
 
 export class GeminiService {
   private _aiInstance: GoogleGenAI | null = null;
 
-  private initAI() {
+  private get ai() {
     if (this._aiInstance) return this._aiInstance;
     try {
-      // Accès strict à process.env.API_KEY tel que requis
-      const apiKey = typeof process !== 'undefined' ? process.env?.API_KEY : undefined;
-      if (!apiKey) return null;
-      this._aiInstance = new GoogleGenAI({ apiKey });
-      return this._aiInstance;
+      if (typeof process !== 'undefined' && process.env.API_KEY) {
+        this._aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        return this._aiInstance;
+      }
+      return null;
     } catch (e) {
       return null;
     }
@@ -26,9 +25,9 @@ export class GeminiService {
     lat?: number, 
     lng?: number
   ): Promise<Terrace[]> {
-    const ai = this.initAI();
+    const ai = this.ai;
     if (!ai) {
-      console.warn("AI service not ready (Check API_KEY)");
+      console.warn("Gemini Engine not ready.");
       return [];
     }
 
@@ -37,18 +36,31 @@ export class GeminiService {
     Réponds uniquement un tableau JSON : [{"name": "Nom", "address": "Adresse", "type": "bar|restaurant", "sunExposure": 80, "description": "Texte court", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
 
     try {
+      // Maps grounding is only supported in Gemini 2.5 series models.
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           tools: [{ googleMaps: {} }, { googleSearch: {} }],
-          toolConfig: { retrievalConfig: { latLng: lat && lng ? { latitude: lat, longitude: lng } : undefined } }
+          toolConfig: { 
+            retrievalConfig: { 
+              latLng: lat && lng ? { latitude: lat, longitude: lng } : undefined 
+            } 
+          }
         }
       });
 
       const text = response.text || "[]";
       const jsonMatch = text.match(/\[.*\]/s);
       const results = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+      
+      // Extract grounding sources as required by Google Maps tool rules
+      const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const sources = groundingChunks.map((chunk: any) => {
+        if (chunk.maps) return { title: chunk.maps.title, uri: chunk.maps.uri };
+        if (chunk.web) return { title: chunk.web.title, uri: chunk.web.uri };
+        return null;
+      }).filter(Boolean);
 
       return results.map((r: any, i: number) => ({
         id: `${i}-${Date.now()}`,
@@ -60,16 +72,17 @@ export class GeminiService {
         description: r.description || "Analyse d'ensoleillement par IA.",
         imageUrl: `https://picsum.photos/seed/${encodeURIComponent(r.name)}/400/300`,
         rating: r.rating || 4.0,
-        coordinates: { lat: r.lat || 0, lng: r.lng || 0 }
+        coordinates: { lat: r.lat || 48.8566, lng: r.lng || 2.3522 },
+        sources: sources.length > 0 ? sources : undefined
       }));
     } catch (e: any) {
-      console.error("Gemini Error:", e?.message || e);
+      console.error("IA Search Error:", e?.message || "API request failed");
       return [];
     }
   }
 
   async speakDescription(text: string) {
-    const ai = this.initAI();
+    const ai = this.ai;
     if (!ai) return;
     try {
       const response = await ai.models.generateContent({
@@ -83,7 +96,7 @@ export class GeminiService {
       const base64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64) this.playRawAudio(base64);
     } catch (e: any) {
-      console.error("TTS Error:", e?.message || e);
+      console.error("TTS Error:", e?.message || "Audio service busy");
     }
   }
 
@@ -102,12 +115,12 @@ export class GeminiService {
       source.connect(ctx.destination);
       source.start();
     } catch (e) {
-      console.error("Audio playback error");
+      console.error("Playback error");
     }
   }
 
   async connectLiveAssistant(callbacks: any) {
-    const ai = this.initAI();
+    const ai = this.ai;
     if (!ai) throw new Error("IA indisponible");
     return ai.live.connect({
       model: 'gemini-2.5-flash-native-audio-preview-09-2025',

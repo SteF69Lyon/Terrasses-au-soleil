@@ -1,4 +1,3 @@
-
 import { initializeApp, FirebaseApp, getApp, getApps } from "firebase/app";
 import { 
   getAuth, 
@@ -53,9 +52,10 @@ class DatabaseService {
       this.auth = getAuth(this.app);
       this.db = getFirestore(this.app);
       
-      console.log("Database connected.");
+      console.log("Database Engine initialized.");
     } catch (error: any) {
-      console.warn("Database initialization skipped:", error?.message || error);
+      // Log unique du message pour éviter les erreurs de structure circulaire
+      console.warn("Database init delayed:", error?.message || "Internal network error");
     }
   }
 
@@ -116,7 +116,7 @@ class DatabaseService {
       const { password, ...safeProfile } = profile as any;
       await setDoc(doc(this.db, "profiles", uid), safeProfile, { merge: true });
     } catch (error: any) {
-      console.error("Firestore error:", error?.message || error);
+      console.error("Profile sync error:", error?.message || "Unknown error");
     }
   }
 
@@ -144,7 +144,10 @@ class DatabaseService {
       const q = query(collection(this.db, "ads"), orderBy("createdAt", "desc"));
       return onSnapshot(q, (snapshot) => {
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Advertisement)));
-      }, () => callback([]));
+      }, (err) => {
+        console.warn("Ads snapshot error:", err.message);
+        callback([]);
+      });
     } catch {
       return () => {};
     }
