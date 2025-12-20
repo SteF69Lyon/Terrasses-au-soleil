@@ -1,4 +1,13 @@
 
+declare global {
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<boolean>;
+    };
+  }
+}
+
 export enum EstablishmentType {
   BAR = 'bar',
   RESTAURANT = 'restaurant',

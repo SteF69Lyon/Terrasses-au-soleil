@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isDbSyncing, setIsDbSyncing] = useState(false);
   const [currentUserUid, setCurrentUserUid] = useState<string | null>(null);
+  const [hasApiKey, setHasApiKey] = useState(false);
   
   const todayStr = new Date().toISOString().split('T')[0];
   const maxDate = new Date();
@@ -90,7 +91,6 @@ const App: React.FC = () => {
         preferences.coords?.lng
       );
       if (results.length === 0) {
-        // On check si c'est vraiment vide ou si l'IA n'a pas répondu correctement
         console.warn("Aucun résultat retourné par Gemini.");
       }
       setTerraces(results);
@@ -103,9 +103,31 @@ const App: React.FC = () => {
     }
   }, [searchQuery, preferences]);
 
+  // Initial API Key Check & First Search
   useEffect(() => {
-    handleSearch("Quartier Latin, Paris");
-  }, []);
+    const init = async () => {
+      if (window.aistudio) {
+        const has = await window.aistudio.hasSelectedApiKey();
+        setHasApiKey(has);
+        if (has) handleSearch("Quartier Latin, Paris");
+      } else {
+        // Environnement de dev ou sans shim : on laisse passer
+        setHasApiKey(true);
+        handleSearch("Quartier Latin, Paris");
+      }
+    };
+    init();
+  }, []); // Run once on mount
+
+  const requestApiKey = async () => {
+    if (window.aistudio) {
+      const success = await window.aistudio.openSelectKey();
+      if (success) {
+        setHasApiKey(true);
+        handleSearch("Quartier Latin, Paris");
+      }
+    }
+  };
 
   const geolocate = () => {
     if (navigator.geolocation) {
@@ -157,6 +179,38 @@ const App: React.FC = () => {
   }, [terraces, preferences.minSunExposure]);
 
   const isAdmin = useMemo(() => dbService.isAdmin(profile.email), [profile.email]);
+
+  // Ecran de blocage si pas de clé API détectée en environnement compatible
+  if (!hasApiKey && window.aistudio) {
+    return (
+      <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+            <div className="absolute top-10 left-10 w-64 h-64 bg-orange-300 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-10 right-10 w-96 h-96 bg-yellow-300 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="relative z-10 bg-white/80 backdrop-blur-xl p-10 rounded-[3rem] shadow-2xl border border-white/50 max-w-lg w-full">
+            <div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-red-500 rounded-3xl flex items-center justify-center text-white shadow-lg rotate-3 mx-auto mb-8 animate-bounce-slow">
+               <i className="fas fa-sun text-5xl"></i>
+            </div>
+            <h1 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Terrasses au soleil</h1>
+            <p className="text-slate-600 mb-8 font-medium leading-relaxed">
+              Pour calculer l'ensoleillement des terrasses en temps réel, cette application nécessite l'accès à l'intelligence artificielle Gemini.
+            </p>
+            <button 
+              onClick={requestApiKey}
+              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-bold text-lg shadow-xl hover:bg-slate-800 hover:scale-[1.02] transition-all flex items-center justify-center gap-3 group"
+            >
+              <i className="fas fa-rocket group-hover:rotate-12 transition-transform"></i>
+              Activer l'Expérience
+            </button>
+            <p className="mt-6 text-xs text-slate-400 font-medium">
+              Powered by Google Gemini 2.5 • Accès Gratuit
+            </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-orange-50 pb-12">
