@@ -1,14 +1,4 @@
 
-declare global {
-  interface AIStudio {
-    hasSelectedApiKey(): Promise<boolean>;
-    openSelectKey(): Promise<void>;
-  }
-
-  interface Window {
-    aistudio?: AIStudio;
-  }
-}
 
 export enum EstablishmentType {
   BAR = 'bar',

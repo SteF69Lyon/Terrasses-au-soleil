@@ -98,9 +98,15 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error("Erreur recherche:", err);
       if (err.message === "API_KEY_MISSING") {
-        setErrorMsg("Clé API Gemini introuvable. L'application ne peut pas contacter l'IA. Vérifiez la configuration (process.env.API_KEY).");
+        const aiStudio = (window as any).aistudio;
+        if (aiStudio) {
+          // Si on a l'environnement aistudio, on réinitialise pour forcer la sélection
+          setHasApiKey(false);
+          return;
+        }
+        setErrorMsg("Clé API Gemini introuvable. Configurez API_KEY dans votre environnement.");
       } else {
-        setErrorMsg("Impossible de contacter l'intelligence artificielle. Vérifiez votre connexion.");
+        setErrorMsg("Impossible de contacter l'intelligence artificielle. " + (err.message || "Erreur inconnue"));
       }
       setTerraces([]);
     } finally {
@@ -111,12 +117,13 @@ const App: React.FC = () => {
   // Initial API Key Check & First Search
   useEffect(() => {
     const init = async () => {
-      if (window.aistudio) {
-        const has = await window.aistudio.hasSelectedApiKey();
+      const aiStudio = (window as any).aistudio;
+      if (aiStudio) {
+        const has = await aiStudio.hasSelectedApiKey();
         setHasApiKey(has);
         if (has) handleSearch("Quartier Latin, Paris");
       } else {
-        // Environnement de dev ou sans shim : on laisse passer
+        // Environnement de dev ou sans shim : on laisse passer (on suppose que process.env.API_KEY est là)
         setHasApiKey(true);
         handleSearch("Quartier Latin, Paris");
       }
@@ -125,9 +132,10 @@ const App: React.FC = () => {
   }, []); // Run once on mount
 
   const requestApiKey = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      // Assume success to mitigate race condition
+    const aiStudio = (window as any).aistudio;
+    if (aiStudio) {
+      await aiStudio.openSelectKey();
+      // On suppose que ça a marché et on relance la recherche pour vérifier
       setHasApiKey(true);
       handleSearch("Quartier Latin, Paris");
     }
@@ -185,7 +193,7 @@ const App: React.FC = () => {
   const isAdmin = useMemo(() => dbService.isAdmin(profile.email), [profile.email]);
 
   // Ecran de blocage si pas de clé API détectée en environnement compatible
-  if (!hasApiKey && window.aistudio) {
+  if (!hasApiKey && (window as any).aistudio) {
     return (
       <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">

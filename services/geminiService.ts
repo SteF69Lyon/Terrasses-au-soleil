@@ -5,11 +5,11 @@ export class GeminiService {
   private createAI() {
     try {
       // Vérification explicite pour le débogage en production
-      // Le polyfill dans index.html garantit que process existe
-      const apiKey = process.env.API_KEY;
+      // On regarde process.env standard ET window.process.env au cas où le polyfill ou le shim diffère
+      const apiKey = process.env.API_KEY || (typeof window !== 'undefined' && (window as any).process?.env?.API_KEY);
       
       if (!apiKey) {
-        console.error("GeminiService: API_KEY manquante dans process.env");
+        console.error("GeminiService: API_KEY manquante (ni dans process.env, ni window.process.env)");
         return null;
       }
       return new GoogleGenAI({ apiKey });
@@ -29,7 +29,7 @@ export class GeminiService {
   ): Promise<Terrace[]> {
     const ai = this.createAI();
     if (!ai) {
-      // On lève une erreur explicite pour que l'UI puisse afficher un message clair
+      // On lève une erreur explicite pour que l'UI puisse réagir (ex: réafficher le sélecteur de clé)
       throw new Error("API_KEY_MISSING");
     }
 
@@ -78,7 +78,7 @@ export class GeminiService {
       }));
     } catch (e: any) {
       console.error("GeminiService Search Error:", e?.message || e);
-      return [];
+      throw e; // Propager l'erreur pour que l'UI sache si c'est la clé ou autre chose
     }
   }
 
