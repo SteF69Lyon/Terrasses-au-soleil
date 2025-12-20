@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { EstablishmentType, Terrace, UserPreferences, SunLevel, UserProfile } from './types';
 import { gemini } from './services/geminiService';
@@ -96,7 +97,11 @@ const App: React.FC = () => {
       setTerraces(results);
     } catch (err: any) {
       console.error("Erreur recherche:", err);
-      setErrorMsg("Impossible de contacter l'intelligence artificielle. Vérifiez votre connexion ou la clé API.");
+      if (err.message === "API_KEY_MISSING") {
+        setErrorMsg("Clé API Gemini introuvable. L'application ne peut pas contacter l'IA. Vérifiez la configuration (process.env.API_KEY).");
+      } else {
+        setErrorMsg("Impossible de contacter l'intelligence artificielle. Vérifiez votre connexion.");
+      }
       setTerraces([]);
     } finally {
       setLoading(false);
@@ -121,11 +126,10 @@ const App: React.FC = () => {
 
   const requestApiKey = async () => {
     if (window.aistudio) {
-      const success = await window.aistudio.openSelectKey();
-      if (success) {
-        setHasApiKey(true);
-        handleSearch("Quartier Latin, Paris");
-      }
+      await window.aistudio.openSelectKey();
+      // Assume success to mitigate race condition
+      setHasApiKey(true);
+      handleSearch("Quartier Latin, Paris");
     }
   };
 

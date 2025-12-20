@@ -5,7 +5,8 @@ export class GeminiService {
   private createAI() {
     try {
       // Vérification explicite pour le débogage en production
-      const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : null;
+      // Le polyfill dans index.html garantit que process existe
+      const apiKey = process.env.API_KEY;
       
       if (!apiKey) {
         console.error("GeminiService: API_KEY manquante dans process.env");
@@ -28,8 +29,8 @@ export class GeminiService {
   ): Promise<Terrace[]> {
     const ai = this.createAI();
     if (!ai) {
-      console.warn("GeminiService: Instance IA non disponible, retour tableau vide.");
-      return [];
+      // On lève une erreur explicite pour que l'UI puisse afficher un message clair
+      throw new Error("API_KEY_MISSING");
     }
 
     const prompt = `Trouve des terrasses à "${location}" pour le ${date} à ${time}. Type d'établissement souhaité: ${type}.
@@ -83,7 +84,7 @@ export class GeminiService {
 
   async speakDescription(text: string) {
     const ai = this.createAI();
-    if (!ai) return;
+    if (!ai) return; // Silent fail for TTS
     try {
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -121,7 +122,7 @@ export class GeminiService {
 
   async connectLiveAssistant(callbacks: any) {
     const ai = this.createAI();
-    if (!ai) throw new Error("IA indisponible (Clé manquante ou erreur init)");
+    if (!ai) throw new Error("IA indisponible (Clé manquante)");
     return ai.live.connect({
       model: 'gemini-2.5-flash-native-audio-preview-09-2025',
       callbacks,
