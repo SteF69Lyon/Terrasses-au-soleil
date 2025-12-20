@@ -5,8 +5,11 @@ export class GeminiService {
   // On ne met plus en cache l'instance pour s'assurer de récupérer la clé process.env à chaque appel
   private createAI() {
     try {
-      // Accès direct à process.env.API_KEY tel que requis par les guidelines
-      return new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Sécurisation de l'accès à process pour éviter le crash si non défini
+      if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+        return new GoogleGenAI({ apiKey: process.env.API_KEY });
+      }
+      return null;
     } catch (e) {
       console.error("Erreur initialisation IA:", e);
       return null;
