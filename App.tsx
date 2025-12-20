@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { EstablishmentType, Terrace, UserPreferences, SunLevel, UserProfile } from './types';
 import { gemini } from './services/geminiService';
@@ -16,8 +15,11 @@ const App: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isDbSyncing, setIsDbSyncing] = useState(false);
   const [currentUserUid, setCurrentUserUid] = useState<string | null>(null);
-  const [hasApiKey, setHasApiKey] = useState(false);
   
+  // Gestion de la clé API
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [isCheckingKey, setIsCheckingKey] = useState(true);
+
   const todayStr = new Date().toISOString().split('T')[0];
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + 2);
@@ -47,6 +49,23 @@ const App: React.FC = () => {
     const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   }, [preferences.date, todayStr]);
+
+  // Initialisation : Vérification de la clé API
+  useEffect(() => {
+    const checkKey = async () => {
+      // 1. Vérification environnement Google IDX/AI Studio
+      if ((window as any).aistudio) {
+        const hasSelected = await (window as any).aistudio.hasSelectedApiKey();
+        setHasApiKey(hasSelected);
+      } else {
+        // 2. Environnement standard : on suppose que la clé est dans process.env
+        // Si elle manque, la requête échouera et on affichera l'erreur à ce moment-là.
+        setHasApiKey(true);
+      }
+      setIsCheckingKey(false);
+    };
+    checkKey();
+  }, []);
 
   // Listener Firebase Auth
   useEffect(() => {
@@ -92,21 +111,21 @@ const App: React.FC = () => {
         preferences.coords?.lng
       );
       if (results.length === 0) {
-        console.warn("Aucun résultat retourné par Gemini.");
+        console.warn("Aucun résultat trouvé.");
       }
       setTerraces(results);
     } catch (err: any) {
       console.error("Erreur recherche:", err);
+      
+      // Gestion spécifique de l'absence de clé
       if (err.message === "API_KEY_MISSING") {
-        const aiStudio = (window as any).aistudio;
-        if (aiStudio) {
-          // Si on a l'environnement aistudio, on réinitialise pour forcer la sélection
-          setHasApiKey(false);
-          return;
+        if ((window as any).aistudio) {
+          setHasApiKey(false); // Cela déclenchera l'écran "Activer l'expérience"
+        } else {
+          setErrorMsg("Clé API manquante. Veuillez configurer la variable d'environnement API_KEY.");
         }
-        setErrorMsg("Clé API Gemini introuvable. Configurez API_KEY dans votre environnement.");
       } else {
-        setErrorMsg("Impossible de contacter l'intelligence artificielle. " + (err.message || "Erreur inconnue"));
+        setErrorMsg("Erreur IA : " + (err.message || "Impossible de récupérer les données."));
       }
       setTerraces([]);
     } finally {
@@ -114,30 +133,23 @@ const App: React.FC = () => {
     }
   }, [searchQuery, preferences]);
 
-  // Initial API Key Check & First Search
+  // Lancement automatique si la clé semble présente
   useEffect(() => {
-    const init = async () => {
-      const aiStudio = (window as any).aistudio;
-      if (aiStudio) {
-        const has = await aiStudio.hasSelectedApiKey();
-        setHasApiKey(has);
-        if (has) handleSearch("Quartier Latin, Paris");
-      } else {
-        // Environnement de dev ou sans shim : on laisse passer (on suppose que process.env.API_KEY est là)
-        setHasApiKey(true);
-        handleSearch("Quartier Latin, Paris");
-      }
-    };
-    init();
-  }, []); // Run once on mount
+    if (!isCheckingKey && hasApiKey) {
+      handleSearch("Quartier Latin, Paris");
+    }
+  }, [isCheckingKey, hasApiKey]);
 
   const requestApiKey = async () => {
     const aiStudio = (window as any).aistudio;
     if (aiStudio) {
-      await aiStudio.openSelectKey();
-      // On suppose que ça a marché et on relance la recherche pour vérifier
-      setHasApiKey(true);
-      handleSearch("Quartier Latin, Paris");
+      try {
+        await aiStudio.openSelectKey();
+        setHasApiKey(true);
+        handleSearch("Quartier Latin, Paris");
+      } catch (e) {
+        console.error("Erreur sélection clé", e);
+      }
     }
   };
 
@@ -192,8 +204,8 @@ const App: React.FC = () => {
 
   const isAdmin = useMemo(() => dbService.isAdmin(profile.email), [profile.email]);
 
-  // Ecran de blocage si pas de clé API détectée en environnement compatible
-  if (!hasApiKey && (window as any).aistudio) {
+  // ÉCRAN DE BLOCAGE : Si on est dans un environnement compatible (AI Studio) mais sans clé
+  if (!isCheckingKey && !hasApiKey && (window as any).aistudio) {
     return (
       <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
@@ -207,17 +219,17 @@ const App: React.FC = () => {
             </div>
             <h1 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Terrasses au soleil</h1>
             <p className="text-slate-600 mb-8 font-medium leading-relaxed">
-              Pour calculer l'ensoleillement des terrasses en temps réel, cette application nécessite l'accès à l'intelligence artificielle Gemini.
+              Pour calculer l'ensoleillement réel en utilisant les données Google Maps, vous devez connecter votre clé API Gemini.
             </p>
             <button 
               onClick={requestApiKey}
               className="w-full bg-slate-900 text-white py-5 rounded-2xl font-bold text-lg shadow-xl hover:bg-slate-800 hover:scale-[1.02] transition-all flex items-center justify-center gap-3 group"
             >
-              <i className="fas fa-rocket group-hover:rotate-12 transition-transform"></i>
-              Activer l'Expérience
+              <i className="fas fa-key group-hover:rotate-12 transition-transform"></i>
+              Connecter ma Clé API
             </button>
             <p className="mt-6 text-xs text-slate-400 font-medium">
-              Powered by Google Gemini 2.5 • Accès Gratuit
+              Données réelles • Powered by Google Gemini 2.5
             </p>
         </div>
       </div>
@@ -364,10 +376,10 @@ const App: React.FC = () => {
             <p className="text-slate-400 mt-2 font-medium">Prévision pour le {displayDateLabel} à {preferences.time}</p>
           </div>
         ) : errorMsg ? (
-          <div className="text-center py-20 bg-red-50 rounded-[3rem] border border-red-100">
+          <div className="text-center py-20 bg-red-50 rounded-[3rem] border border-red-100 max-w-2xl mx-auto">
             <i className="fas fa-triangle-exclamation text-4xl text-red-400 mb-4"></i>
-            <p className="text-red-700 font-bold">{errorMsg}</p>
-            <button onClick={() => handleSearch()} className="mt-4 px-6 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-bold transition-colors">Réessayer</button>
+            <p className="text-red-700 font-bold mb-4">{errorMsg}</p>
+            <button onClick={() => handleSearch()} className="px-6 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-bold transition-colors">Réessayer</button>
           </div>
         ) : filteredTerraces.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
@@ -387,7 +399,7 @@ const App: React.FC = () => {
             </div>
             <h3 className="text-slate-800 font-black text-2xl mb-3">Zone d'ombre détectée</h3>
             <p className="text-slate-500 max-w-sm mx-auto font-medium">
-              Aucun établissement ne répond à vos critères à cette heure-là. <br/> Essayez d'élargir votre recherche ou de baisser le seuil d'ensoleillement.
+              Aucun établissement trouvé. <br/> Essayez d'élargir votre recherche ou vérifiez votre connexion.
             </p>
           </div>
         )}

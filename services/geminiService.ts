@@ -1,78 +1,17 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { EstablishmentType, SunLevel, Terrace, UserProfile } from "../types";
+import { GoogleGenAI, Modality } from "@google/genai";
+import { EstablishmentType, SunLevel, Terrace } from "../types";
 
 export class GeminiService {
   private createAI() {
-    try {
-      // Vérification explicite pour le débogage en production
-      // On regarde process.env standard ET window.process.env au cas où le polyfill ou le shim diffère
-      const apiKey = process.env.API_KEY || (typeof window !== 'undefined' && (window as any).process?.env?.API_KEY);
-      
-      if (!apiKey) {
-        console.warn("GeminiService: API_KEY manquante - Passage en mode Démo (Mock Data)");
-        return null;
-      }
-      return new GoogleGenAI({ apiKey });
-    } catch (e) {
-      console.error("GeminiService: Erreur d'initialisation:", e);
-      return null;
+    // Vérification stricte de la clé API
+    // On vérifie process.env (standard) et window.process.env (polyfill/shim)
+    const apiKey = process.env.API_KEY || (typeof window !== 'undefined' && (window as any).process?.env?.API_KEY);
+    
+    if (!apiKey) {
+      // On lève une erreur spécifique pour que l'App.tsx puisse afficher l'écran de sélection de clé
+      throw new Error("API_KEY_MISSING");
     }
-  }
-
-  private getMockTerraces(type: EstablishmentType): Terrace[] {
-    const mocks: Terrace[] = [
-      {
-        id: 'demo-1',
-        name: 'Le Café du Soleil (Démo)',
-        address: '12 Place du Panthéon, 75005 Paris',
-        type: EstablishmentType.CAFE,
-        sunExposure: 95,
-        sunLevel: SunLevel.FULL,
-        description: "Simulation: Terrasse emblématique exposée plein sud. L'IA détecterait ici une absence d'ombre portée significative. (Mode Démo)",
-        imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=600&auto=format&fit=crop',
-        rating: 4.8,
-        coordinates: { lat: 48.8462, lng: 2.3461 }
-      },
-      {
-        id: 'demo-2',
-        name: 'Bistro des Amis (Démo)',
-        address: 'Rue Mouffetard, 75005 Paris',
-        type: EstablishmentType.RESTAURANT,
-        sunExposure: 65,
-        sunLevel: SunLevel.PARTIAL,
-        description: "Simulation: Ensoleillement partiel dû aux bâtiments hauts côté ouest. Idéal pour le déjeuner. (Mode Démo)",
-        imageUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=600&auto=format&fit=crop',
-        rating: 4.5,
-        coordinates: { lat: 48.8421, lng: 2.3492 }
-      },
-      {
-        id: 'demo-3',
-        name: 'Rooftop Saint-Michel (Démo)',
-        address: 'Boulevard Saint-Michel, 75006 Paris',
-        type: EstablishmentType.BAR,
-        sunExposure: 100,
-        sunLevel: SunLevel.FULL,
-        description: "Simulation: Vue dégagée sur les toits, ensoleillement maximal garanti toute la journée. (Mode Démo)",
-        imageUrl: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=600&auto=format&fit=crop',
-        rating: 4.9,
-        coordinates: { lat: 48.8500, lng: 2.3410 }
-      },
-      {
-        id: 'demo-4',
-        name: 'L\'Ombre Paisible (Démo)',
-        address: 'Rue des Ecoles, 75005 Paris',
-        type: EstablishmentType.CAFE,
-        sunExposure: 20,
-        sunLevel: SunLevel.SHADED,
-        description: "Simulation: Zone ombragée agréable lors des fortes chaleurs. (Mode Démo)",
-        imageUrl: 'https://images.unsplash.com/photo-1485182708500-e8f1f318ba72?q=80&w=600&auto=format&fit=crop',
-        rating: 4.0,
-        coordinates: { lat: 48.8490, lng: 2.3480 }
-      }
-    ];
-
-    if (type === EstablishmentType.ALL) return mocks;
-    return mocks.filter(m => m.type === type);
+    return new GoogleGenAI({ apiKey });
   }
 
   async findTerraces(
@@ -83,16 +22,10 @@ export class GeminiService {
     lat?: number, 
     lng?: number
   ): Promise<Terrace[]> {
-    const ai = this.createAI();
-    if (!ai) {
-      // Au lieu de lever une erreur bloquante, on retourne des données fictives pour permettre l'usage de l'UI
-      console.warn("Utilisation des données Mock (Mode Démo) suite à l'absence de clé API.");
-      await new Promise(resolve => setTimeout(resolve, 800)); // Simuler un délai réseau
-      return this.getMockTerraces(type);
-    }
+    const ai = this.createAI(); // Ceci lèvera une erreur si pas de clé
 
     const prompt = `Trouve des terrasses à "${location}" pour le ${date} à ${time}. Type d'établissement souhaité: ${type}.
-    Calcule précisément l'ensoleillement en pourcentage (0-100%) selon les ombres portées des bâtiments environnants à cette heure précise.
+    Calcule précisément l'ensoleillement en pourcentage (0-100%) selon les ombres portées des bâtiments environnants à cette heure précise en utilisant les outils de recherche et de cartographie.
     Réponds EXCLUSIVEMENT sous forme de tableau JSON valide: 
     [{"name": "Nom", "address": "Adresse", "type": "bar|restaurant|cafe", "sunExposure": 80, "description": "Brève analyse de l'ombre portée", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
 
@@ -114,6 +47,7 @@ export class GeminiService {
       const jsonMatch = text.match(/\[.*\]/s);
       const results = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
       
+      // Extraction des sources (Google Maps / Search) pour la transparence
       const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
       const sources = groundingChunks.map((chunk: any) => {
         if (chunk.maps) return { title: chunk.maps.title, uri: chunk.maps.uri };
@@ -136,15 +70,13 @@ export class GeminiService {
       }));
     } catch (e: any) {
       console.error("GeminiService Search Error:", e?.message || e);
-      // Fallback silencieux en cas d'erreur API
-      return this.getMockTerraces(type);
+      throw e; // On propage l'erreur pour que l'UI affiche le problème
     }
   }
 
   async speakDescription(text: string) {
-    const ai = this.createAI();
-    if (!ai) return; // Silent fail for TTS
     try {
+      const ai = this.createAI();
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: `Dis de manière chaleureuse: ${text}` }] }],
@@ -181,7 +113,6 @@ export class GeminiService {
 
   async connectLiveAssistant(callbacks: any) {
     const ai = this.createAI();
-    if (!ai) throw new Error("IA indisponible (Clé manquante)");
     return ai.live.connect({
       model: 'gemini-2.5-flash-native-audio-preview-09-2025',
       callbacks,
