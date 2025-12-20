@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { EstablishmentType, Terrace, UserPreferences, SunLevel, UserProfile } from './types';
 import { gemini } from './services/geminiService';
@@ -11,6 +10,7 @@ import AdBanner from './components/AdBanner';
 const App: React.FC = () => {
   const [terraces, setTerraces] = useState<Terrace[]>([]);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isDbSyncing, setIsDbSyncing] = useState(false);
@@ -79,6 +79,7 @@ const App: React.FC = () => {
   const handleSearch = useCallback(async (locationInput?: string) => {
     const loc = locationInput || searchQuery || "Paris";
     setLoading(true);
+    setErrorMsg(null);
     try {
       const results = await gemini.findTerraces(
         loc, 
@@ -88,9 +89,15 @@ const App: React.FC = () => {
         preferences.coords?.lat, 
         preferences.coords?.lng
       );
+      if (results.length === 0) {
+        // On check si c'est vraiment vide ou si l'IA n'a pas répondu correctement
+        console.warn("Aucun résultat retourné par Gemini.");
+      }
       setTerraces(results);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erreur recherche:", err);
+      setErrorMsg("Impossible de contacter l'intelligence artificielle. Vérifiez votre connexion ou la clé API.");
+      setTerraces([]);
     } finally {
       setLoading(false);
     }
@@ -290,6 +297,12 @@ const App: React.FC = () => {
             <p className="text-slate-800 font-black text-2xl tracking-tight">Analyse des ombres portées...</p>
             <p className="text-slate-400 mt-2 font-medium">Prévision pour le {displayDateLabel} à {preferences.time}</p>
           </div>
+        ) : errorMsg ? (
+          <div className="text-center py-20 bg-red-50 rounded-[3rem] border border-red-100">
+            <i className="fas fa-triangle-exclamation text-4xl text-red-400 mb-4"></i>
+            <p className="text-red-700 font-bold">{errorMsg}</p>
+            <button onClick={() => handleSearch()} className="mt-4 px-6 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-bold transition-colors">Réessayer</button>
+          </div>
         ) : filteredTerraces.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {filteredTerraces.map(terrace => (
@@ -308,7 +321,7 @@ const App: React.FC = () => {
             </div>
             <h3 className="text-slate-800 font-black text-2xl mb-3">Zone d'ombre détectée</h3>
             <p className="text-slate-500 max-w-sm mx-auto font-medium">
-              Aucun établissement ne répond à vos critères à cette heure-là. <br/> Essayez d'élargir votre recherche.
+              Aucun établissement ne répond à vos critères à cette heure-là. <br/> Essayez d'élargir votre recherche ou de baisser le seuil d'ensoleillement.
             </p>
           </div>
         )}

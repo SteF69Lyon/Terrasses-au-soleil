@@ -2,16 +2,18 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { EstablishmentType, SunLevel, Terrace, UserProfile } from "../types";
 
 export class GeminiService {
-  // On ne met plus en cache l'instance pour s'assurer de récupérer la clé process.env à chaque appel
   private createAI() {
     try {
-      // Sécurisation de l'accès à process pour éviter le crash si non défini
-      if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-        return new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Vérification explicite pour le débogage en production
+      const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : null;
+      
+      if (!apiKey) {
+        console.error("GeminiService: API_KEY manquante dans process.env");
+        return null;
       }
-      return null;
+      return new GoogleGenAI({ apiKey });
     } catch (e) {
-      console.error("Erreur initialisation IA:", e);
+      console.error("GeminiService: Erreur d'initialisation:", e);
       return null;
     }
   }
@@ -25,7 +27,10 @@ export class GeminiService {
     lng?: number
   ): Promise<Terrace[]> {
     const ai = this.createAI();
-    if (!ai) return [];
+    if (!ai) {
+      console.warn("GeminiService: Instance IA non disponible, retour tableau vide.");
+      return [];
+    }
 
     const prompt = `Trouve des terrasses à "${location}" pour le ${date} à ${time}. Type d'établissement souhaité: ${type}.
     Calcule précisément l'ensoleillement en pourcentage (0-100%) selon les ombres portées des bâtiments environnants à cette heure précise.
@@ -33,7 +38,6 @@ export class GeminiService {
     [{"name": "Nom", "address": "Adresse", "type": "bar|restaurant|cafe", "sunExposure": 80, "description": "Brève analyse de l'ombre portée", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
 
     try {
-      // Maps grounding est supporté uniquement sur la série 2.5
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
@@ -48,11 +52,9 @@ export class GeminiService {
       });
 
       const text = response.text || "[]";
-      // Extraction sécurisée du JSON
       const jsonMatch = text.match(/\[.*\]/s);
       const results = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
       
-      // Extraction obligatoire des sources de grounding pour conformité Google
       const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
       const sources = groundingChunks.map((chunk: any) => {
         if (chunk.maps) return { title: chunk.maps.title, uri: chunk.maps.uri };
@@ -74,7 +76,7 @@ export class GeminiService {
         sources: sources.length > 0 ? sources : undefined
       }));
     } catch (e: any) {
-      console.error("IA Search Error:", e?.message || "Échec de l'appel IA");
+      console.error("GeminiService Search Error:", e?.message || e);
       return [];
     }
   }
@@ -119,7 +121,7 @@ export class GeminiService {
 
   async connectLiveAssistant(callbacks: any) {
     const ai = this.createAI();
-    if (!ai) throw new Error("IA indisponible");
+    if (!ai) throw new Error("IA indisponible (Clé manquante ou erreur init)");
     return ai.live.connect({
       model: 'gemini-2.5-flash-native-audio-preview-09-2025',
       callbacks,
