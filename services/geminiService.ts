@@ -3,15 +3,15 @@ import { EstablishmentType, SunLevel, Terrace } from "../types";
 
 export class GeminiService {
   private createAI() {
-    // Tentative de récupération de la clé via différentes sources communes en frontend
+    // Détection simplifiée pour Hostinger et environnements statiques
     const apiKey = 
+      (window as any).API_KEY || 
       (process.env.API_KEY) || 
       (window as any).process?.env?.API_KEY || 
-      (import.meta as any).env?.VITE_API_KEY || 
-      (window as any).API_KEY;
+      (import.meta as any).env?.VITE_API_KEY;
     
     if (!apiKey) {
-      console.error("GeminiService: API_KEY introuvable dans l'environnement.");
+      console.error("GeminiService: API_KEY introuvable.");
       throw new Error("API_KEY_MISSING");
     }
     
@@ -28,33 +28,32 @@ export class GeminiService {
   ): Promise<Terrace[]> {
     const ai = this.createAI();
 
-    const prompt = `Trouve des terrasses à "${location}" pour le ${date} à ${time}. Type d'établissement souhaité: ${type}.
-    Calcule précisément l'ensoleillement en pourcentage (0-100%) selon les ombres portées des bâtiments environnants à cette heure précise en utilisant les outils de recherche et de cartographie.
-    Réponds EXCLUSIVEMENT sous forme de tableau JSON valide: 
-    [{"name": "Nom", "address": "Adresse", "type": "bar|restaurant|cafe", "sunExposure": 80, "description": "Brève analyse de l'ombre portée", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
+    // Prompt optimisé pour la recherche web
+    const prompt = `Recherche des terrasses à "${location}" pour le ${date} vers ${time}. 
+    Type d'établissement: ${type}.
+    Analyse l'ensoleillement (pourcentage de 0 à 100%) selon l'orientation de la rue et l'heure.
+    Réponds EXCLUSIVEMENT sous forme de tableau JSON: 
+    [{"name": "Nom", "address": "Adresse complète", "type": "bar|restaurant|cafe", "sunExposure": 80, "description": "Analyse du soleil", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
 
     try {
-      // Correction: Utilisation impérative de gemini-2.5-flash pour le support de googleMaps
+      // Utilisation de gemini-3-flash-preview (modèle de base recommandé)
+      // On utilise UNIQUEMENT googleSearch pour éviter l'erreur 400 de Maps
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          tools: [{ googleMaps: {} }, { googleSearch: {} }],
-          toolConfig: { 
-            retrievalConfig: { 
-              latLng: lat && lng ? { latitude: lat, longitude: lng } : undefined 
-            } 
-          }
+          tools: [{ googleSearch: {} }]
         }
       });
 
       const text = response.text || "[]";
-      const jsonMatch = text.match(/\[.*\]/s);
+      // Extraction sécurisée du JSON dans la réponse (parfois entouré de texte/markdown)
+      const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
       const results = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
       
+      // Extraction des sources (URLs) de la recherche Google
       const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
       const sources = groundingChunks.map((chunk: any) => {
-        if (chunk.maps) return { title: chunk.maps.title, uri: chunk.maps.uri };
         if (chunk.web) return { title: chunk.web.title, uri: chunk.web.uri };
         return null;
       }).filter(Boolean);
