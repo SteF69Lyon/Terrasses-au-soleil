@@ -3,14 +3,18 @@ import { EstablishmentType, SunLevel, Terrace } from "../types";
 
 export class GeminiService {
   private createAI() {
-    // Vérification stricte de la clé API
-    // On vérifie process.env (standard) et window.process.env (polyfill/shim)
-    const apiKey = process.env.API_KEY || (typeof window !== 'undefined' && (window as any).process?.env?.API_KEY);
+    // Tentative de récupération de la clé via différentes sources communes en frontend
+    const apiKey = 
+      (process.env.API_KEY) || 
+      (window as any).process?.env?.API_KEY || 
+      (import.meta as any).env?.VITE_API_KEY || 
+      (window as any).API_KEY;
     
     if (!apiKey) {
-      // On lève une erreur spécifique pour que l'App.tsx puisse afficher l'écran de sélection de clé
+      console.error("GeminiService: API_KEY introuvable dans l'environnement.");
       throw new Error("API_KEY_MISSING");
     }
+    
     return new GoogleGenAI({ apiKey });
   }
 
@@ -22,7 +26,7 @@ export class GeminiService {
     lat?: number, 
     lng?: number
   ): Promise<Terrace[]> {
-    const ai = this.createAI(); // Ceci lèvera une erreur si pas de clé
+    const ai = this.createAI();
 
     const prompt = `Trouve des terrasses à "${location}" pour le ${date} à ${time}. Type d'établissement souhaité: ${type}.
     Calcule précisément l'ensoleillement en pourcentage (0-100%) selon les ombres portées des bâtiments environnants à cette heure précise en utilisant les outils de recherche et de cartographie.
@@ -30,6 +34,7 @@ export class GeminiService {
     [{"name": "Nom", "address": "Adresse", "type": "bar|restaurant|cafe", "sunExposure": 80, "description": "Brève analyse de l'ombre portée", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
 
     try {
+      // Correction: Utilisation impérative de gemini-2.5-flash pour le support de googleMaps
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
@@ -47,7 +52,6 @@ export class GeminiService {
       const jsonMatch = text.match(/\[.*\]/s);
       const results = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
       
-      // Extraction des sources (Google Maps / Search) pour la transparence
       const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
       const sources = groundingChunks.map((chunk: any) => {
         if (chunk.maps) return { title: chunk.maps.title, uri: chunk.maps.uri };
@@ -70,7 +74,7 @@ export class GeminiService {
       }));
     } catch (e: any) {
       console.error("GeminiService Search Error:", e?.message || e);
-      throw e; // On propage l'erreur pour que l'UI affiche le problème
+      throw e;
     }
   }
 
