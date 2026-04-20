@@ -34,7 +34,11 @@ const firebaseConfig = {
   measurementId: "G-8Q3P0EC5LQ"
 };
 
-const ADMIN_EMAIL = 'sflandrin@outlook.com';
+const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').toLowerCase().trim();
+
+if (!ADMIN_EMAIL) {
+  console.warn('[dbService] VITE_ADMIN_EMAIL is not set — admin access will be disabled.');
+}
 
 class DatabaseService {
   private app?: FirebaseApp;
