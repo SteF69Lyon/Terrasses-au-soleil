@@ -1,1 +1,1 @@
-// Cloud Functions — exports ajoutés au fur et à mesure
+export { geminiSearch } from './src/geminiSearch';
