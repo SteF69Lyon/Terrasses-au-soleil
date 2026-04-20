@@ -30,21 +30,34 @@ export const geminiSearch = onCall(
     Réponds EXCLUSIVEMENT sous forme de tableau JSON:
     [{"name": "Nom", "address": "Adresse complète", "type": "bar|restaurant|cafe", "sunExposure": 80, "description": "Analyse du soleil", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: { tools: [{ googleSearch: {} }] },
-    });
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { tools: [{ googleSearch: {} }] },
+      });
 
-    const text = response.text || '[]';
-    const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
-    const results: any[] = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+      const text = response.text || '[]';
+      const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
 
-    const groundingChunks = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || []) as any[];
-    const sources = groundingChunks
-      .map((chunk: any) => (chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null))
-      .filter(Boolean);
+      let results: any[] = [];
+      if (jsonMatch) {
+        try {
+          results = JSON.parse(jsonMatch[0]);
+        } catch {
+          throw new HttpsError('internal', 'La réponse Gemini ne contient pas de JSON valide.');
+        }
+      }
 
-    return { results, sources };
+      const groundingChunks = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || []) as any[];
+      const sources = groundingChunks
+        .map((chunk: any) => (chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null))
+        .filter(Boolean);
+
+      return { results, sources };
+    } catch (e: any) {
+      if (e instanceof HttpsError) throw e;
+      throw new HttpsError('unavailable', 'Service Gemini temporairement indisponible.');
+    }
   }
 );
