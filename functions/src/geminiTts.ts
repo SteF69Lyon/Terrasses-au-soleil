@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { GoogleGenAI, Modality } from '@google/genai';
 
 export const geminiTts = onCall(
-  { region: 'europe-west1', secrets: ['GEMINI_API_KEY'] },
+  { region: 'europe-west1', secrets: ['GEMINI_API_KEY'], invoker: 'public' },
   async (request) => {
     const { text } = request.data as { text: string };
 

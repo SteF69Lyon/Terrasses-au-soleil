@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { GoogleGenAI } from '@google/genai';
 
 export const geminiSearch = onCall(
-  { region: 'europe-west1', secrets: ['GEMINI_API_KEY'] },
+  { region: 'europe-west1', secrets: ['GEMINI_API_KEY'], invoker: 'public' },
   async (request) => {
     const { location, type, date, time, lat, lng } = request.data as {
       location: string;

@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 export const geminiLiveToken = onCall(
-  { region: 'europe-west1', secrets: ['GEMINI_API_KEY'] },
+  { region: 'europe-west1', secrets: ['GEMINI_API_KEY'], invoker: 'public' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError(
