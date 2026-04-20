@@ -28,6 +28,9 @@ export const geminiTts = onCall(
       });
 
       const audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data ?? null;
+      if (!audio) {
+        throw new HttpsError('internal', 'Aucune donnée audio reçue de Gemini TTS.');
+      }
       return { audio };
     } catch (e: any) {
       if (e instanceof HttpsError) throw e;
