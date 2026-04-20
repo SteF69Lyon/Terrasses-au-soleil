@@ -65,7 +65,7 @@ firebase init firestore   # si firestore.rules n'existe pas encore
 ### CORS
 
 Toutes les fonctions autorisent uniquement :
-- Le domaine Hostinger de production exact (à confirmer — ex: `https://terrassesausoleil.com`)
+- `https://terrasse-au-soleil.fr` (production Hostinger)
 - `http://localhost:3000` (développement)
 
 ### Cloud Function : `gemini-search`
