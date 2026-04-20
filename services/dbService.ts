@@ -34,7 +34,7 @@ const firebaseConfig = {
   measurementId: "G-8Q3P0EC5LQ"
 };
 
-const ADMIN_EMAIL = 'sflandrin@outlook.com';
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? '';
 
 class DatabaseService {
   private app?: FirebaseApp;
