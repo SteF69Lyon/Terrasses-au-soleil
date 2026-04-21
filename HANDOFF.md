@@ -1,92 +1,204 @@
 # Handoff — reprise du travail entre PCs
 
-Ce fichier sert de point de reprise entre les 3 PCs utilisés. Mis à jour à chaque fin de session.
+Ce fichier est le point de reprise partagé entre les 3 PCs. Il est mis à jour à la fin de chaque session. Il vit dans le repo donc il suit via `git pull`.
 
-## Environnement de dev
+---
 
-- **Repo :** `SteF69Lyon/Terrasses-au-soleil` (GitHub) — source de vérité cross-PC.
-- **Chemin local standard :** `C:/dev/terrasses-au-soleil/` sur les 3 PCs (hors OneDrive).
-- **Ne pas mettre le repo dans OneDrive** — corruption des objets git quasi garantie.
+## 🚀 Reprise rapide (à lire en premier)
 
-### Setup initial sur un nouveau PC
+### Sur un PC déjà setup
 
 ```bash
+cd /c/dev/terrasses-au-soleil
+git pull origin main
+# Si de nouvelles deps sont arrivées :
+npm install
+cd app && npm install && cd ..
+# Ouvre ton éditeur / Claude Code ici
+```
+
+### Sur un PC où le projet n'est pas encore setup
+
+```bash
+# 1. Cloner à l'emplacement standard (hors OneDrive — important)
+mkdir -p /c/dev
 git clone https://github.com/SteF69Lyon/Terrasses-au-soleil.git /c/dev/terrasses-au-soleil
 cd /c/dev/terrasses-au-soleil
-npm install
-cd functions && npm install && cd ..
-echo "VITE_ADMIN_EMAIL=sflandrin@outlook.com" > .env.local
-```
 
-### Début de session (PC déjà setup)
-
-```bash
-cd /c/dev/terrasses-au-soleil
+# 2. Se mettre sur main et tirer la dernière version
+git checkout main
 git pull
-git status
+
+# 3. Installer les dépendances frontend (SPA actuelle)
+npm install
+
+# 4. Installer les dépendances des Cloud Functions
+cd functions && npm install && cd ..
+
+# 5. Recréer le fichier .env.local (non commité, spécifique à chaque PC)
+echo "VITE_ADMIN_EMAIL=sflandrin@outlook.com" > .env.local
+
+# 6. Vérifier que la CLI Firebase est connectée
+firebase projects:list
+# Si pas connecté :
+firebase login
+firebase use terrassesausoleil
+
+# 7. Vérifier que tout compile
+npm run build
+
+# 8. (Optionnel, test complet) lancer le dev server
+npm run dev
+# Puis ouvrir http://localhost:3000
 ```
 
-### Fin de session
+Une fois ces étapes passées, ouvrir Claude Code dans ce dossier et taper :
+> *"Reprends le travail, lis HANDOFF.md"*
 
-```bash
-git add -A
-git commit -m "wip: <description>"
-git push
-```
-
-Puis mettre à jour la section **Dernière session** ci-dessous avant de pousser.
+Claude lira ce fichier et enchaînera sur la tâche en cours.
 
 ---
 
-## Projet
+## 📍 État du projet — 2026-04-21 fin de journée
 
-**App :** Terrasses-au-soleil — recherche de terrasses ensoleillées.
-**Stack :** React/Vite + Firebase Cloud Functions v2 (Node 20, TS, région `europe-west1`) + Firestore + Gemini API.
-**Projet Firebase :** `terrassesausoleil`.
-**Prod :** `terrasse-au-soleil.fr` (hébergé Hostinger).
-**Admin :** `sflandrin@outlook.com` (via `VITE_ADMIN_EMAIL`).
+### Ce qui est terminé ✅
 
----
+**Sécurisation Gemini/Firebase (Task 9 du premier plan)** — tout est en prod :
+- Secret `GEMINI_API_KEY` enregistré dans Firebase
+- 3 Cloud Functions déployées en `europe-west1` (`geminiSearch`, `geminiTts`, `geminiLiveToken`)
+- Règles Firestore durcies déployées (default-deny + règles sur `profiles`, `ads`, caches SEO)
+- Clé Gemini absente du bundle client en prod (vérifié par grep)
+- Variable `VITE_ADMIN_EMAIL` en place sur Hostinger
+- Branche `claude/musing-cartwright-e84790` mergée sur `main`
+- Hostinger a auto-déployé sur `terrasse-au-soleil.fr`
 
-## Dernière session — 2026-04-21 (après-midi)
+### Ce qui reste à tester manuellement (5 min)
 
-**Branche active :** `claude/musing-cartwright-e84790` — merge sur `main` en cours (déclenche le déploiement auto Hostinger).
+- Ouvrir `https://terrasse-au-soleil.fr` dans le navigateur et tester :
+  - [ ] Une recherche de terrasse (doit appeler `europe-west1-terrassesausoleil.cloudfunctions.net`, visible dans l'onglet Réseau du devtools)
+  - [ ] Le bouton TTS d'une description
+  - [ ] L'assistant vocal **connecté** (doit s'ouvrir normalement)
+  - [ ] L'assistant vocal **déconnecté** (doit afficher une erreur gérée, pas crash)
+- Dans Firebase Console → Firestore → Rules → Rules Playground :
+  - [ ] Écriture `ads/test` par un user non-admin → **Denied**
+  - [ ] Écriture `ads/test` par user `sflandrin@outlook.com` → **Allowed**
 
-**Plan de référence :** [docs/superpowers/plans/2026-04-20-securite-gemini-firebase.md](docs/superpowers/plans/2026-04-20-securite-gemini-firebase.md)
+### Prochain chantier : pages SEO statiques pour trafic AdSense
 
-**Ce qui est fait (Tasks 1–8 + début Task 9) :**
-- Admin email déplacé en variable d'env (`VITE_ADMIN_EMAIL`)
-- Règles Firestore durcies sur `profiles` et `ads` (+ default-deny) — ✅ **déployées en prod**
-- 3 Cloud Functions : `geminiSearch`, `geminiTts`, `geminiLiveToken` — ✅ **déployées en `europe-west1`**
-- Secret `GEMINI_API_KEY` — ✅ **enregistré dans Firebase**
-- `services/geminiService.ts` refait pour appeler les Functions via `httpsCallable`
-- Clé Gemini absente du bundle client (vérifié par `grep 'AIza…' dist/` — seule la clé Firebase Web publique apparaît, par design)
+**Objectif métier :** générer du trafic organique sur le site (le business model repose sur AdSense, la SPA actuelle est invisible à Google).
 
-**Ce qui reste à faire (Task 9 — tests prod) :**
+**Documents de référence :**
+- Design validé : [`docs/superpowers/specs/2026-04-21-seo-pages-statiques-astro-design.md`](docs/superpowers/specs/2026-04-21-seo-pages-statiques-astro-design.md)
+- Plan d'implémentation détaillé (23 tasks) : [`docs/superpowers/plans/2026-04-21-seo-pages-statiques-astro.md`](docs/superpowers/plans/2026-04-21-seo-pages-statiques-astro.md)
 
-1. ~~Enregistrer le secret `GEMINI_API_KEY`~~ ✅ fait
-2. ~~Déployer règles Firestore + Functions~~ ✅ fait
-3. Merge `claude/musing-cartwright-e84790` → `main` (en cours) → déclenche auto-deploy Hostinger
-4. Une fois en ligne, vérification prod :
+**Résumé de l'approche validée :**
+- Hybride : Astro statique à la racine pour les pages SEO, SPA Vite existante déplacée dans `app/`. Un seul `dist/` fusionné est déployé.
+- Source de données : OpenStreetMap (Overpass) + analyse Gemini au build. Caché dans Firestore avec TTL.
+- V1 : ~95 pages au premier déploiement (15 villes × 4 variations lexicales + ~18 quartiers sur les 5 grandes villes), extensible à ~200 après validation Google.
+- AdSense : emplacements prévus mais invisibles tant que les IDs AdSense ne sont pas fournis (après validation du compte).
+
+**Exécution recommandée :** demander à Claude Code dans cette session :
+> *"Exécute le plan `docs/superpowers/plans/2026-04-21-seo-pages-statiques-astro.md` en subagent-driven (un sub-agent par task, review entre chaque)."*
+
+Ou alternative plus directe :
+> *"Exécute le plan en inline execution, avec checkpoint après chaque groupe de 3 tasks."*
+
+Le plan démarre par la Task 1 (déplacement de la SPA dans `app/`) qui est une opération réversible via Git, donc safe.
+
+**Pré-requis avant de lancer l'exécution du plan :**
+1. Avoir un service account Firebase pour le build local/CI.
+   - Firebase Console → Project settings → Service accounts → Generate new private key
+   - Sauvegarder le JSON dans `/c/Users/<user>/terrasses-sa.json` (hors repo)
+2. Export dans le shell avant de builder :
    ```bash
-   curl -s https://terrasse-au-soleil.fr/assets/*.js | grep -oE 'AIza[A-Za-z0-9_-]{35}'
+   export FIREBASE_SERVICE_ACCOUNT="$(cat /c/Users/<user>/terrasses-sa.json)"
+   export GEMINI_BUILD_KEY="ta_cle_gemini"
    ```
-   → doit renvoyer uniquement `AIzaSyBxuoq...` (Firebase Web, publique), pas la clé Gemini (`AIzaSyD4EQ0...`).
-5. Tests manuels dans l'app :
-   - Recherche de terrasse → doit appeler `europe-west1-terrassesausoleil.cloudfunctions.net`, pas `generativelanguage.googleapis.com`.
-   - Bouton TTS sur une carte.
-   - Assistant vocal : connecté (doit fonctionner) / déconnecté (doit afficher erreur gérée).
-6. Firebase Console → Firestore → Rules Playground :
-   - Écriture `ads/test` par non-admin → **Denied**.
-   - Écriture `ads/test` par admin → **Allowed**.
-
-**À prévoir prochainement (pas urgent aujourd'hui) :**
-- Node 20 déprécié le 2026-04-30 → upgrade `functions/package.json` vers `"node": "22"` + retester le deploy avant cette date.
-- `firebase-functions` obsolète → upgrade vers v6.x (breaking changes à gérer).
+3. (Pour que la GitHub Action marche plus tard) ajouter ces 2 secrets sur GitHub :
+   - Repo Settings → Secrets and variables → Actions → New repository secret
+   - `FIREBASE_SERVICE_ACCOUNT` (contenu du JSON complet)
+   - `GEMINI_BUILD_KEY` (la clé Gemini)
 
 ---
 
-## Notes cross-PC
+## 🏗️ Contexte projet
 
-- Le fichier `.env.local` doit être recréé sur chaque PC (il n'est pas commité — et c'est voulu).
-- Les fichiers mémoire Claude (`~/.claude/projects/…/memory/`) **ne suivent pas** entre les PCs. Ce fichier HANDOFF.md est le seul vrai point de reprise partagé.
+**App :** Terrasses-au-soleil — recherche de terrasses ensoleillées via IA.
+
+**URL prod :** https://terrasse-au-soleil.fr (hébergé Hostinger, auto-deploy sur push `main`)
+
+**Stack actuelle (en cours de migration hybride) :**
+- Frontend : React 19 + Vite 6 (dans `app/` après Task 1 du nouveau plan, à la racine avant)
+- Backend : Firebase Cloud Functions v2 (Node 20, TypeScript, région `europe-west1`)
+- Data : Firestore (collections `profiles`, `ads` + collections SEO à venir)
+- IA : Gemini API (`@google/genai`, clé stockée en secret Firebase)
+- Auth : Firebase Auth
+
+**Projet Firebase :** `terrassesausoleil` (id) — TerrassesAuSoleil (nom affiché)
+
+**Admin :** `sflandrin@outlook.com` (email utilisé pour les règles Firestore `ads` et la variable `VITE_ADMIN_EMAIL`)
+
+**Repo GitHub :** https://github.com/SteF69Lyon/Terrasses-au-soleil
+
+### Arbre actuel (avant exécution du nouveau plan)
+
+```
+/c/dev/terrasses-au-soleil/
+├── App.tsx, index.html, index.tsx, vite.config.ts, tsconfig.json  (SPA racine — sera déplacé)
+├── components/, services/, types.ts                               (SPA — sera déplacée)
+├── functions/                                                     (Cloud Functions — inchangé)
+├── firebase.json, firestore.rules, firestore.indexes.json, .firebaserc
+├── docs/superpowers/specs/          (design docs)
+├── docs/superpowers/plans/          (plans d'impl)
+├── HANDOFF.md                       (ce fichier)
+├── .env.local                       (non commité)
+└── dist/                            (généré au build, non commité)
+```
+
+### Après exécution du plan SEO (pour info)
+
+```
+/c/dev/terrasses-au-soleil/
+├── astro.config.mjs, package.json   (Astro racine)
+├── src/pages/, src/lib/, src/components/, src/data/
+├── tests/                           (Vitest)
+├── public/                          (robots.txt, og-default.jpg)
+├── app/                             (SPA Vite déplacée ici)
+│   ├── App.tsx, vite.config.ts, package.json, ...
+├── functions/                       (inchangé)
+├── scripts/merge-dist.mjs           (combine les deux builds)
+└── ...
+```
+
+---
+
+## ⚠️ À prévoir prochainement (post-SEO)
+
+Ces points ne sont pas bloquants aujourd'hui mais à traiter bientôt :
+
+- **Node 20 déprécié le 2026-04-30** (dans 9 jours). Il faut upgrader `functions/package.json` vers `"node": "22"` et retester le deploy avant cette date, sinon Firebase refusera les nouveaux deploys de Functions.
+- **`firebase-functions` obsolète** — upgrade vers v6.x. Breaking changes à gérer (voir release notes).
+- **Bundle Vite SPA à 964 kB** — warning au build, nuit au Core Web Vitals et donc au SEO. Code-splitting via dynamic imports sur `services/geminiService.ts` et les composants lourds. Chantier séparé post-SEO.
+
+---
+
+## 🌐 Workflow cross-PC
+
+- Le repo est la seule source de vérité (pas OneDrive pour le code — ça corrompt les objets git).
+- Fin de session : `git add -A && git commit -m "..." && git push`
+- Début de session : `git pull`
+- Si travail en cours non commité : **commit wip** avant de partir, même si le code ne fonctionne pas, avec un message `wip: <état>`. On rebase/squash au prochain bon moment.
+- Les fichiers mémoire Claude (`~/.claude/projects/…/memory/`) **ne sont pas synchronisés** entre PCs. Ce fichier HANDOFF.md est le vrai handoff partagé.
+- `.env.local` n'est jamais commité → à recréer manuellement sur chaque PC (voir section Reprise rapide).
+
+## 🔧 Commandes utiles
+
+| Besoin | Commande |
+|---|---|
+| Dev local (SPA actuelle) | `npm run dev` puis `http://localhost:3000` |
+| Build de prod | `npm run build` |
+| Déployer règles Firestore | `firebase deploy --only firestore:rules` |
+| Déployer Cloud Functions | `firebase deploy --only functions` |
+| Voir les logs Functions | `firebase functions:log` |
+| Lister les secrets Firebase | `firebase functions:secrets:access <NOM>` (⚠️ affiche la valeur en clair) |
+| Projet Firebase courant | `firebase use` |
