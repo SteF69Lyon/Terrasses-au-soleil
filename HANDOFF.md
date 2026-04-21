@@ -48,45 +48,41 @@ Puis mettre à jour la section **Dernière session** ci-dessous avant de pousser
 
 ---
 
-## Dernière session — 2026-04-21
+## Dernière session — 2026-04-21 (après-midi)
 
-**Branche active :** `claude/musing-cartwright-e84790` (non mergée sur `main`).
+**Branche active :** `claude/musing-cartwright-e84790` — merge sur `main` en cours (déclenche le déploiement auto Hostinger).
 
 **Plan de référence :** [docs/superpowers/plans/2026-04-20-securite-gemini-firebase.md](docs/superpowers/plans/2026-04-20-securite-gemini-firebase.md)
 
-**Ce qui est fait et commité (Tasks 1–8 du plan) :**
+**Ce qui est fait (Tasks 1–8 + début Task 9) :**
 - Admin email déplacé en variable d'env (`VITE_ADMIN_EMAIL`)
-- Règles Firestore durcies sur `profiles` et `ads` (+ default-deny)
-- 3 Cloud Functions créées : `geminiSearch`, `geminiTts`, `geminiLiveToken`
+- Règles Firestore durcies sur `profiles` et `ads` (+ default-deny) — ✅ **déployées en prod**
+- 3 Cloud Functions : `geminiSearch`, `geminiTts`, `geminiLiveToken` — ✅ **déployées en `europe-west1`**
+- Secret `GEMINI_API_KEY` — ✅ **enregistré dans Firebase**
 - `services/geminiService.ts` refait pour appeler les Functions via `httpsCallable`
-- Clé Gemini retirée du bundle client (`vite.config.ts` nettoyé)
+- Clé Gemini absente du bundle client (vérifié par `grep 'AIza…' dist/` — seule la clé Firebase Web publique apparaît, par design)
 
-**Ce qui reste à faire (Task 9 — déploiement & tests prod) :**
+**Ce qui reste à faire (Task 9 — tests prod) :**
 
-1. Enregistrer le secret Gemini côté Firebase :
+1. ~~Enregistrer le secret `GEMINI_API_KEY`~~ ✅ fait
+2. ~~Déployer règles Firestore + Functions~~ ✅ fait
+3. Merge `claude/musing-cartwright-e84790` → `main` (en cours) → déclenche auto-deploy Hostinger
+4. Une fois en ligne, vérification prod :
    ```bash
-   firebase functions:secrets:set GEMINI_API_KEY
+   curl -s https://terrasse-au-soleil.fr/assets/*.js | grep -oE 'AIza[A-Za-z0-9_-]{35}'
    ```
-2. Déployer les règles Firestore et les Functions :
-   ```bash
-   firebase deploy --only firestore:rules
-   firebase deploy --only functions
-   ```
-3. Tester en dev (`npm run dev`) :
-   - Recherche de terrasse → vérifier que la requête va vers `europe-west1-terrassesausoleil.cloudfunctions.net` et non vers `generativelanguage.googleapis.com`.
-   - Lecture vocale TTS d'une description.
-   - Live assistant : connecté (doit fonctionner) / déconnecté (doit renvoyer une erreur gérée).
-4. Tester les règles dans Firebase Console → Firestore → Rules Playground :
+   → doit renvoyer uniquement `AIzaSyBxuoq...` (Firebase Web, publique), pas la clé Gemini (`AIzaSyD4EQ0...`).
+5. Tests manuels dans l'app :
+   - Recherche de terrasse → doit appeler `europe-west1-terrassesausoleil.cloudfunctions.net`, pas `generativelanguage.googleapis.com`.
+   - Bouton TTS sur une carte.
+   - Assistant vocal : connecté (doit fonctionner) / déconnecté (doit afficher erreur gérée).
+6. Firebase Console → Firestore → Rules Playground :
    - Écriture `ads/test` par non-admin → **Denied**.
    - Écriture `ads/test` par admin → **Allowed**.
-5. ~~Ajouter `VITE_ADMIN_EMAIL=sflandrin@outlook.com` dans les variables d'env de build sur Hostinger.~~ **✅ Déjà fait.**
-6. Redéployer le frontend (process habituel Hostinger).
-7. Vérification finale en prod :
-   ```bash
-   curl -s https://terrasse-au-soleil.fr/assets/*.js | grep "AIza"
-   ```
-   → doit être **vide**.
-8. Une fois validé : merge `claude/musing-cartwright-e84790` → `main` et supprimer la branche.
+
+**À prévoir prochainement (pas urgent aujourd'hui) :**
+- Node 20 déprécié le 2026-04-30 → upgrade `functions/package.json` vers `"node": "22"` + retester le deploy avant cette date.
+- `firebase-functions` obsolète → upgrade vers v6.x (breaking changes à gérer).
 
 ---
 
