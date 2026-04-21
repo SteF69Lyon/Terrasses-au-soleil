@@ -79,7 +79,7 @@ Puis mettre à jour la section **Dernière session** ci-dessous avant de pousser
 4. Tester les règles dans Firebase Console → Firestore → Rules Playground :
    - Écriture `ads/test` par non-admin → **Denied**.
    - Écriture `ads/test` par admin → **Allowed**.
-5. Ajouter `VITE_ADMIN_EMAIL=sflandrin@outlook.com` dans les variables d'env de build sur Hostinger.
+5. ~~Ajouter `VITE_ADMIN_EMAIL=sflandrin@outlook.com` dans les variables d'env de build sur Hostinger.~~ **✅ Déjà fait.**
 6. Redéployer le frontend (process habituel Hostinger).
 7. Vérification finale en prod :
    ```bash
