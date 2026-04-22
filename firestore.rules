@@ -12,6 +12,29 @@ service cloud.firestore {
         && request.auth.token.email == "sflandrin@outlook.com";
     }
 
+    // Caches d'enrichissement SEO — écriture uniquement via Admin SDK au build
+    match /osmCache/{cacheId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /sunScores/{osmId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /pageIntros/{pageId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /pageFaqs/{pageId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /cityGeo/{cityQuartierId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Default-deny catch-all
     match /{document=**} {
       allow read, write: if false;
     }
