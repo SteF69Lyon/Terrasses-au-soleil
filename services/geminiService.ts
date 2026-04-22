@@ -1,9 +1,24 @@
 import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { GoogleGenAI, Modality } from '@google/genai';
-import { EstablishmentType, SunLevel, Terrace } from '../types';
+import { GoogleGenAI, Modality, Type } from '@google/genai';
+import { EstablishmentType, SunLevel, Terrace, UserPreferences } from '../types';
 
 const REGION = 'europe-west1';
+
+export interface LiveAssistantContext {
+  terraces: Terrace[];
+  preferences: UserPreferences;
+  locationHint: string;
+  displayDateLabel: string;
+}
+
+export interface LiveAssistantCallbacks {
+  onopen: () => void;
+  onmessage: (message: any) => void;
+  onerror: (error: any) => void;
+  onclose: () => void;
+  onTerracesUpdated?: (terraces: Terrace[]) => void;
+}
 
 export class GeminiService {
   private fns() {
@@ -48,22 +63,140 @@ export class GeminiService {
     }
   }
 
-  async connectLiveAssistant(callbacks: any) {
+  async connectLiveAssistant(callbacks: LiveAssistantCallbacks, context: LiveAssistantContext) {
     const tokenFn = httpsCallable(this.fns(), 'geminiLiveToken');
     const result = await tokenFn({});
     const { apiKey } = result.data as { apiKey: string };
 
     const ai = new GoogleGenAI({ apiKey });
-    return ai.live.connect({
+
+    const terracesSummary = context.terraces.length === 0
+      ? '(aucune terrasse affichée actuellement)'
+      : context.terraces
+          .map(
+            (t, i) =>
+              `${i + 1}. "${t.name}" — ${t.address} — ${t.type} — ${t.sunExposure}% de soleil (${t.sunLevel}) — note ${t.rating}/5. ${t.description}`
+          )
+          .join('\n');
+
+    const systemInstruction = `Tu es un assistant vocal expert en terrasses ensoleillées en France. Réponds TOUJOURS en français, de façon concise et chaleureuse (1 à 3 phrases max).
+
+CONTEXTE DE LA RECHERCHE ACTUELLE :
+- Date : ${context.preferences.date} (${context.displayDateLabel})
+- Heure : ${context.preferences.time}
+- Zone recherchée : ${context.locationHint || 'non précisée'}
+- Type filtré : ${context.preferences.type}
+- Ensoleillement minimum demandé : ${context.preferences.minSunExposure}%
+
+TERRASSES ACTUELLEMENT AFFICHÉES À L'UTILISATEUR :
+${terracesSummary}
+
+RÈGLES :
+1. Quand l'utilisateur pose une question sur les résultats visibles ("laquelle est la plus au soleil ?", "laquelle tu recommandes ?", "quelle adresse ?"), réponds UNIQUEMENT à partir de la liste ci-dessus.
+2. Quand l'utilisateur demande à chercher ailleurs (autre ville, quartier, type d'établissement, autre date/heure), appelle OBLIGATOIREMENT la fonction search_terraces avec les bons paramètres. Ne jamais inventer de terrasses.
+3. Après un appel à search_terraces, annonce brièvement combien de résultats ont été trouvés et cite les 2-3 plus ensoleillés.
+4. Si la liste est vide et que l'utilisateur n'a pas précisé où chercher, demande-lui la ville ou le quartier.`;
+
+    const functionDeclarations = [
+      {
+        name: 'search_terraces',
+        description:
+          "Recherche de nouvelles terrasses selon des critères donnés. À appeler dès que l'utilisateur demande une autre ville, un autre quartier, un autre type d'établissement, ou une autre date/heure.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            location: {
+              type: Type.STRING,
+              description: 'Ville, quartier ou adresse en France (ex: "Paris 11e", "Lyon Croix-Rousse")',
+            },
+            type: {
+              type: Type.STRING,
+              description: "Type d'établissement : bar, restaurant, cafe, hôtel, ou all",
+            },
+            date: {
+              type: Type.STRING,
+              description: 'Date au format YYYY-MM-DD (optionnel, défaut = date de la recherche courante)',
+            },
+            time: {
+              type: Type.STRING,
+              description: 'Heure HH:MM (optionnel, défaut = heure de la recherche courante)',
+            },
+          },
+          required: ['location'],
+        },
+      },
+    ];
+
+    let session: any = null;
+    session = await ai.live.connect({
       model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-      callbacks,
+      callbacks: {
+        onopen: callbacks.onopen,
+        onerror: callbacks.onerror,
+        onclose: callbacks.onclose,
+        onmessage: async (message: any) => {
+          const functionCalls = message.toolCall?.functionCalls;
+          if (functionCalls?.length) {
+            for (const fc of functionCalls) {
+              if (fc.name === 'search_terraces') {
+                const args = (fc.args || {}) as {
+                  location?: string;
+                  type?: string;
+                  date?: string;
+                  time?: string;
+                };
+                try {
+                  const results = await this.findTerraces(
+                    args.location || context.locationHint || 'Paris',
+                    (args.type as EstablishmentType) || context.preferences.type,
+                    args.date || context.preferences.date,
+                    args.time || context.preferences.time
+                  );
+                  callbacks.onTerracesUpdated?.(results);
+
+                  const summary =
+                    results.length === 0
+                      ? "Aucune terrasse trouvée pour cette recherche."
+                      : `${results.length} terrasse(s) trouvée(s). Les plus ensoleillées : ` +
+                        results
+                          .slice()
+                          .sort((a, b) => b.sunExposure - a.sunExposure)
+                          .slice(0, 3)
+                          .map((t) => `${t.name} (${t.sunExposure}% soleil, ${t.address})`)
+                          .join(' ; ');
+
+                  session.sendToolResponse({
+                    functionResponses: [
+                      { id: fc.id, name: fc.name, response: { result: summary } },
+                    ],
+                  });
+                } catch (e: any) {
+                  session.sendToolResponse({
+                    functionResponses: [
+                      {
+                        id: fc.id,
+                        name: fc.name,
+                        response: { result: `Erreur de recherche : ${e?.message || 'inconnue'}` },
+                      },
+                    ],
+                  });
+                }
+              }
+            }
+            return;
+          }
+          callbacks.onmessage(message);
+        },
+      },
       config: {
         responseModalities: [Modality.AUDIO],
-        systemInstruction:
-          "Tu es un expert en terrasses. Aide l'utilisateur à trouver le soleil. Réponds en français.",
+        systemInstruction,
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
+        tools: [{ functionDeclarations }],
       },
     });
+
+    return session;
   }
 
   private async playRawAudio(base64: string) {

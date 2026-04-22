@@ -1,8 +1,23 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { gemini } from '../services/geminiService';
+import { Terrace, UserPreferences } from '../types';
 
-const SearchAssistant: React.FC = () => {
+interface SearchAssistantProps {
+  terraces: Terrace[];
+  preferences: UserPreferences;
+  locationHint: string;
+  displayDateLabel: string;
+  onTerracesUpdated: (terraces: Terrace[]) => void;
+}
+
+const SearchAssistant: React.FC<SearchAssistantProps> = ({
+  terraces,
+  preferences,
+  locationHint,
+  displayDateLabel,
+  onTerracesUpdated,
+}) => {
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -86,7 +101,10 @@ const SearchAssistant: React.FC = () => {
         }
       };
 
-      sessionRef.current = await gemini.connectLiveAssistant(callbacks);
+      sessionRef.current = await gemini.connectLiveAssistant(
+        { ...callbacks, onTerracesUpdated },
+        { terraces, preferences, locationHint, displayDateLabel }
+      );
     } catch (err) {
       console.error(err);
       setIsConnecting(false);
