@@ -59,7 +59,7 @@ Claude lira ce fichier et enchaînera sur la tâche en cours.
 
 ---
 
-## 📍 État du projet — 2026-04-21 fin de journée
+## 📍 État du projet — 2026-04-22
 
 ### Ce qui est terminé ✅
 
@@ -71,6 +71,14 @@ Claude lira ce fichier et enchaînera sur la tâche en cours.
 - Variable `VITE_ADMIN_EMAIL` en place sur Hostinger
 - Branche `claude/musing-cartwright-e84790` mergée sur `main`
 - Hostinger a auto-déployé sur `terrasse-au-soleil.fr`
+
+**Upgrades runtime / deps Cloud Functions (2026-04-22)** — prêt à déployer :
+- `firebase.json` : runtime passé à `nodejs22` (avant deadline 2026-04-30)
+- `functions/package.json` : `engines.node` → `22`, `firebase-functions` → `^7.0.0`
+- `firebase-admin` reste en `^13.0.0` (résolu à 13.8.0, Node 22 supporté)
+- `functions/package-lock.json` désormais commité pour builds reproductibles cross-PC
+- Build TS local OK (`npm run build` dans `functions/`)
+- ⚠️ **Reste à déployer** : `firebase deploy --only functions` depuis un PC avec la CLI Firebase connectée, puis vérifier `firebase functions:log` pour absence de régressions sur les 3 endpoints.
 
 ### Ce qui reste à tester manuellement (5 min)
 
@@ -176,8 +184,7 @@ Le plan démarre par la Task 1 (déplacement de la SPA dans `app/`) qui est une 
 
 Ces points ne sont pas bloquants aujourd'hui mais à traiter bientôt :
 
-- **Node 20 déprécié le 2026-04-30** (dans 9 jours). Il faut upgrader `functions/package.json` vers `"node": "22"` et retester le deploy avant cette date, sinon Firebase refusera les nouveaux deploys de Functions.
-- **`firebase-functions` obsolète** — upgrade vers v6.x. Breaking changes à gérer (voir release notes).
+- **Déployer l'upgrade Node 22 / firebase-functions v7** — fait en local, non encore poussé en prod. Commande : `firebase deploy --only functions`. À faire avant le 2026-04-30.
 - **Bundle Vite SPA à 964 kB** — warning au build, nuit au Core Web Vitals et donc au SEO. Code-splitting via dynamic imports sur `services/geminiService.ts` et les composants lourds. Chantier séparé post-SEO.
 
 ---
