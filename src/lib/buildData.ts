@@ -24,13 +24,18 @@ async function getOrFetchBBox(city: City, quartier: Quartier | null): Promise<BB
   return bbox;
 }
 
+const MAX_CACHED_ESTABLISHMENTS = 100;
+
 async function getOrFetchEstablishments(pageId: string, bbox: BBox): Promise<Establishment[]> {
   const db = getDb();
   const cached = await getCached<Establishment[]>(db, 'osmCache', pageId, TTL.OSM);
   if (cached) return cached;
-  const list = await fetchEstablishments(bbox);
-  await setCached(db, 'osmCache', pageId, list);
-  return list;
+  const all = await fetchEstablishments(bbox);
+  const withSeating = all.filter((e) => e.outdoorSeating);
+  const without = all.filter((e) => !e.outdoorSeating);
+  const trimmed = [...withSeating, ...without].slice(0, MAX_CACHED_ESTABLISHMENTS);
+  await setCached(db, 'osmCache', pageId, trimmed);
+  return trimmed;
 }
 
 async function getOrComputeSunScore(est: Establishment, batchFallback: Map<string, SunScore>): Promise<SunScore | null> {
