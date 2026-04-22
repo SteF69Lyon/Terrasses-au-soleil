@@ -29,15 +29,37 @@ async function getOrFetchBBox(city: City, quartier: Quartier | null): Promise<BB
 const MAX_CACHED_ESTABLISHMENTS = 100;
 const MAX_CACHED_BUILDINGS = 800;
 
+interface CachedBuilding {
+  osmId: string;
+  height: number;
+  /** Flat [lng, lat, lng, lat, ...] — Firestore rejects nested arrays. */
+  flatPolygon: number[];
+}
+
+function toCached(b: Building): CachedBuilding {
+  const flat: number[] = [];
+  for (const [lng, lat] of b.polygon) {
+    flat.push(lng, lat);
+  }
+  return { osmId: b.osmId, height: b.height, flatPolygon: flat };
+}
+
+function fromCached(c: CachedBuilding): Building {
+  const poly: [number, number][] = [];
+  for (let i = 0; i < c.flatPolygon.length; i += 2) {
+    poly.push([c.flatPolygon[i], c.flatPolygon[i + 1]]);
+  }
+  return { osmId: c.osmId, height: c.height, polygon: poly };
+}
+
 async function getOrFetchBuildings(pageId: string, bbox: BBox): Promise<Building[]> {
   const db = getDb();
-  const cached = await getCached<Building[]>(db, 'osmBuildings', pageId, TTL.OSM);
-  if (cached) return cached;
+  const cached = await getCached<CachedBuilding[]>(db, 'osmBuildings', pageId, TTL.OSM);
+  if (cached) return cached.map(fromCached);
   const all = await fetchBuildings(bbox);
-  // Priority to taller buildings — they cast longer shadows and matter most.
   const sorted = [...all].sort((a, b) => b.height - a.height);
   const trimmed = sorted.slice(0, MAX_CACHED_BUILDINGS);
-  await setCached(db, 'osmBuildings', pageId, trimmed);
+  await setCached(db, 'osmBuildings', pageId, trimmed.map(toCached));
   return trimmed;
 }
 
