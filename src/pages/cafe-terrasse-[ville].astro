@@ -1,0 +1,21 @@
+---
+import CityVariationPage from '@/components/CityVariationPage.astro';
+import { CITIES, findCity } from '@/data/cities';
+import { hasBuildCredentials } from '@/lib/firebase';
+
+export async function getStaticPaths() {
+  if (!hasBuildCredentials()) return [];
+  return CITIES.map((c) => ({ params: { ville: c.slug } }));
+}
+
+const { ville } = Astro.params;
+const city = findCity(ville!);
+if (!city) throw new Error(`Unknown ville ${ville}`);
+---
+<CityVariationPage
+  city={city}
+  variation="cafe"
+  title={`Cafés avec terrasse à ${city.name}`}
+  h1={`Cafés avec terrasse ensoleillée à ${city.name}`}
+  filter={(e) => e.type === 'cafe'}
+/>

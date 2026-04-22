@@ -5,7 +5,15 @@ import mdx from '@astrojs/mdx';
 
 export default defineConfig({
   site: 'https://terrasse-au-soleil.fr',
-  integrations: [react(), sitemap(), mdx()],
+  integrations: [
+    react(),
+    sitemap({
+      filter: (page) => !page.includes('/app/'),
+      changefreq: 'monthly',
+      priority: 0.7,
+    }),
+    mdx(),
+  ],
   output: 'static',
   build: {
     format: 'directory',
