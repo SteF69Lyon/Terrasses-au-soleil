@@ -54,10 +54,17 @@ export async function fetchEstablishments(bbox: BBox): Promise<Establishment[]> 
   const query = buildQuery(bbox);
   const res = await fetch(ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: query,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+      'User-Agent': 'terrasse-au-soleil.fr/1.0 (contact: sflandrin@outlook.com)',
+    },
+    body: `data=${encodeURIComponent(query)}`,
   });
-  if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => '');
+    throw new Error(`Overpass HTTP ${res.status}: ${bodyText.slice(0, 200)}`);
+  }
   const json = (await res.json()) as { elements: RawElement[] };
   const list: Establishment[] = [];
   for (const el of json.elements) {
