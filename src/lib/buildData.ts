@@ -2,7 +2,8 @@ import { getDb } from './firebase';
 import { getCached, setCached, TTL } from './cache';
 import { geocodeThrottled } from './nominatim';
 import { fetchEstablishments, type Establishment } from './overpass';
-import { scoreSunExposure, generateIntro, generateFaq, type SunScore, type FaqEntry } from './gemini';
+import { generateIntro, generateFaq, type FaqEntry } from './gemini';
+import { scoreEstablishment, SEO_REFERENCE_DATE, type SunScore } from './sun';
 import type { BBox } from './nominatim';
 import type { City, Quartier } from '../data/cities';
 
@@ -38,16 +39,15 @@ async function getOrFetchEstablishments(pageId: string, bbox: BBox): Promise<Est
   return trimmed;
 }
 
-async function getOrComputeSunScore(est: Establishment, batchFallback: Map<string, SunScore>): Promise<SunScore | null> {
+async function getOrComputeSunScore(est: Establishment): Promise<SunScore> {
   const db = getDb();
-  const cached = await getCached<SunScore>(db, 'sunScores', encodeURIComponent(est.osmId), TTL.SUN_SCORE);
+  // Prefix "d1_" (deterministic v1) invalides the previous Gemini-generated cache entries.
+  const cacheId = encodeURIComponent(`d1_${est.osmId}`);
+  const cached = await getCached<SunScore>(db, 'sunScores', cacheId, TTL.SUN_SCORE);
   if (cached) return cached;
-  const fromBatch = batchFallback.get(est.osmId);
-  if (fromBatch) {
-    await setCached(db, 'sunScores', encodeURIComponent(est.osmId), fromBatch);
-    return fromBatch;
-  }
-  return null;
+  const score = scoreEstablishment(est, SEO_REFERENCE_DATE);
+  await setCached(db, 'sunScores', cacheId, score);
+  return score;
 }
 
 async function getOrGenerateIntro(pageId: string, city: City, quartier: Quartier | null, bbox: BBox): Promise<string> {
@@ -84,20 +84,8 @@ export async function buildPageData(city: City, quartier: Quartier | null): Prom
   const pool = withSeating.length >= 10 ? withSeating : all;
   const top = pool.slice(0, 15);
 
-  const missing: Establishment[] = [];
-  const batchFallback = new Map<string, SunScore>();
-  const db = getDb();
-  for (const e of top) {
-    const cached = await getCached<SunScore>(db, 'sunScores', encodeURIComponent(e.osmId), TTL.SUN_SCORE);
-    if (!cached) missing.push(e);
-  }
-  if (missing.length > 0) {
-    const scores = await scoreSunExposure(missing);
-    for (const s of scores) batchFallback.set(s.osmId, s);
-  }
-
   const enriched = await Promise.all(
-    top.map(async (e) => ({ ...e, sun: await getOrComputeSunScore(e, batchFallback) })),
+    top.map(async (e) => ({ ...e, sun: await getOrComputeSunScore(e) })),
   );
 
   const intro = await getOrGenerateIntro(pageId, city, quartier, bbox);
