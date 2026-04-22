@@ -27,6 +27,19 @@ async function getOrFetchBBox(city: City, quartier: Quartier | null): Promise<BB
 }
 
 const MAX_CACHED_ESTABLISHMENTS = 100;
+const MAX_CACHED_BUILDINGS = 800;
+
+async function getOrFetchBuildings(pageId: string, bbox: BBox): Promise<Building[]> {
+  const db = getDb();
+  const cached = await getCached<Building[]>(db, 'osmBuildings', pageId, TTL.OSM);
+  if (cached) return cached;
+  const all = await fetchBuildings(bbox);
+  // Priority to taller buildings — they cast longer shadows and matter most.
+  const sorted = [...all].sort((a, b) => b.height - a.height);
+  const trimmed = sorted.slice(0, MAX_CACHED_BUILDINGS);
+  await setCached(db, 'osmBuildings', pageId, trimmed);
+  return trimmed;
+}
 
 async function getOrFetchEstablishments(pageId: string, bbox: BBox): Promise<Establishment[]> {
   const db = getDb();
@@ -93,7 +106,7 @@ export async function buildPageData(city: City, quartier: Quartier | null): Prom
   const pool = withSeating.length >= 10 ? withSeating : all;
   const top = pool.slice(0, 15);
 
-  const buildings = await fetchBuildings(bbox);
+  const buildings = await getOrFetchBuildings(pageId, bbox);
 
   const enriched = await Promise.all(
     top.map(async (e) => ({ ...e, sun: await getOrComputeSunScore(e, buildings) })),
