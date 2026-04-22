@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+
+Sitemap: https://terrasse-au-soleil.fr/sitemap-index.xml
