@@ -59,73 +59,60 @@ Claude lira ce fichier et enchaînera sur la tâche en cours.
 
 ---
 
-## 📍 État du projet — 2026-04-22
+## 📍 État du projet — 2026-04-22 fin de journée
 
-### Ce qui est terminé ✅
+### Ce qui est terminé ✅ et en prod
 
-**Sécurisation Gemini/Firebase (Task 9 du premier plan)** — tout est en prod :
-- Secret `GEMINI_API_KEY` enregistré dans Firebase
-- 3 Cloud Functions déployées en `europe-west1` (`geminiSearch`, `geminiTts`, `geminiLiveToken`)
-- Règles Firestore durcies déployées (default-deny + règles sur `profiles`, `ads`, caches SEO)
-- Clé Gemini absente du bundle client en prod (vérifié par grep)
-- Variable `VITE_ADMIN_EMAIL` en place sur Hostinger
-- Branche `claude/musing-cartwright-e84790` mergée sur `main`
-- Hostinger a auto-déployé sur `terrasse-au-soleil.fr`
+**Sécurisation Gemini/Firebase** (sessions précédentes) — Cloud Functions en `europe-west1`, règles Firestore durcies, secret Gemini hors bundle client.
 
-**Upgrades runtime / deps Cloud Functions (2026-04-22)** — prêt à déployer :
-- `firebase.json` : runtime passé à `nodejs22` (avant deadline 2026-04-30)
-- `functions/package.json` : `engines.node` → `22`, `firebase-functions` → `^7.0.0`
-- `firebase-admin` reste en `^13.0.0` (résolu à 13.8.0, Node 22 supporté)
-- `functions/package-lock.json` désormais commité pour builds reproductibles cross-PC
-- Build TS local OK (`npm run build` dans `functions/`)
-- ⚠️ **Reste à déployer** : `firebase deploy --only functions` depuis un PC avec la CLI Firebase connectée, puis vérifier `firebase functions:log` pour absence de régressions sur les 3 endpoints.
+**Upgrades runtime** — Node 22 + firebase-functions v7 déployés (avant deadline Node 20 du 2026-04-30).
 
-### Ce qui reste à tester manuellement (5 min)
+**Assistant vocal amélioré** — reçoit désormais la liste des terrasses affichées en `systemInstruction` + tool `search_terraces` (function calling Gemini Live) pour déclencher une recherche depuis la voix.
 
-- Ouvrir `https://terrasse-au-soleil.fr` dans le navigateur et tester :
-  - [ ] Une recherche de terrasse (doit appeler `europe-west1-terrassesausoleil.cloudfunctions.net`, visible dans l'onglet Réseau du devtools)
-  - [ ] Le bouton TTS d'une description
-  - [ ] L'assistant vocal **connecté** (doit s'ouvrir normalement)
-  - [ ] L'assistant vocal **déconnecté** (doit afficher une erreur gérée, pas crash)
-- Dans Firebase Console → Firestore → Rules → Rules Playground :
-  - [ ] Écriture `ads/test` par un user non-admin → **Denied**
-  - [ ] Écriture `ads/test` par user `sflandrin@outlook.com` → **Allowed**
+**Plan SEO Astro — Tasks 1 à 19 mergées sur `main`** (PR #4, #5, #6) :
+- Architecture hybride : Astro à la racine, SPA dans `app/` servie sur `/app/`
+- Build unifié : `npm run build` → `app/dist` + Astro `dist/` → merge via `scripts/merge-dist.mjs`
+- Hostinger : commande `npm run build` inchangée (install chaîné dans le script)
+- Règles Firestore cache déployées (`osmCache`, `sunScores`, `pageIntros`, `pageFaqs`, `cityGeo`)
+- Couche lib/ complète : `cache`, `urls`, `nominatim`, `overpass`, `gemini`, `jsonld`, `buildData`, `firebase` — **22 tests Vitest OK**
+- 15 villes seedées (5 avec quartiers détaillés = 18 quartiers)
+- Pages dynamiques : `/terrasses/[ville]/`, `/terrasses/[ville]/[quartier]/`, `/bar-ensoleille-[ville]/`, `/cafe-terrasse-[ville]/`, `/restaurant-terrasse-[ville]/`, `/ou-boire-un-verre-au-soleil-[ville]/` → ~150 pages générables
+- Landing `/` remplacée (directory des 15 villes, CTA vers `/app/`)
+- Sitemap configuré avec exclusion de `/app/`
+- Composants partagés + MiniMap React Leaflet
+- **Dégradation gracieuse** : sans env vars Firebase+Gemini au build, `getStaticPaths` retourne `[]` et les pages dynamiques ne sont pas générées. Pas de casse de build.
 
-### Prochain chantier : pages SEO statiques pour trafic AdSense
+### 🔜 Task 20 — Premier déploiement SEO complet (ACTION REQUISE CÔTÉ UTILISATEUR)
 
-**Objectif métier :** générer du trafic organique sur le site (le business model repose sur AdSense, la SPA actuelle est invisible à Google).
+Tant que les env vars du build ne sont pas fournies, **seule la landing est déployée** (pas les 150 pages SEO). Hostinger rebuilde actuellement avec la nouvelle landing mais pas de contenu dynamique.
 
-**Documents de référence :**
-- Design validé : [`docs/superpowers/specs/2026-04-21-seo-pages-statiques-astro-design.md`](docs/superpowers/specs/2026-04-21-seo-pages-statiques-astro-design.md)
-- Plan d'implémentation détaillé (23 tasks) : [`docs/superpowers/plans/2026-04-21-seo-pages-statiques-astro.md`](docs/superpowers/plans/2026-04-21-seo-pages-statiques-astro.md)
+**Deux options pour activer le build complet :**
 
-**Résumé de l'approche validée :**
-- Hybride : Astro statique à la racine pour les pages SEO, SPA Vite existante déplacée dans `app/`. Un seul `dist/` fusionné est déployé.
-- Source de données : OpenStreetMap (Overpass) + analyse Gemini au build. Caché dans Firestore avec TTL.
-- V1 : ~95 pages au premier déploiement (15 villes × 4 variations lexicales + ~18 quartiers sur les 5 grandes villes), extensible à ~200 après validation Google.
-- AdSense : emplacements prévus mais invisibles tant que les IDs AdSense ne sont pas fournis (après validation du compte).
+**Option A — Variables d'env sur Hostinger** (si supporté par le panneau)
+1. Ajouter dans Hostinger → Git deploy → Variables d'environnement :
+   - `GEMINI_BUILD_KEY` = clé Gemini (peut réutiliser celle du `.env.local`)
+   - `FIREBASE_SERVICE_ACCOUNT` = contenu JSON du service account (une ligne, tout sur la même)
+2. Relancer un deploy (nouveau commit ou bouton "redeploy")
 
-**Exécution recommandée :** demander à Claude Code dans cette session :
-> *"Exécute le plan `docs/superpowers/plans/2026-04-21-seo-pages-statiques-astro.md` en subagent-driven (un sub-agent par task, review entre chaque)."*
-
-Ou alternative plus directe :
-> *"Exécute le plan en inline execution, avec checkpoint après chaque groupe de 3 tasks."*
-
-Le plan démarre par la Task 1 (déplacement de la SPA dans `app/`) qui est une opération réversible via Git, donc safe.
-
-**Pré-requis avant de lancer l'exécution du plan :**
-1. Avoir un service account Firebase pour le build local/CI.
-   - Firebase Console → Project settings → Service accounts → Generate new private key
-   - Sauvegarder le JSON dans `/c/Users/<user>/terrasses-sa.json` (hors repo)
-2. Export dans le shell avant de builder :
+**Option B — Build local + push `dist/`** (fallback si Hostinger ne supporte pas les env vars)
+1. Le SA JSON est déjà à `/c/dev/terrasses-au-soleil/terrassesausoleil-firebase-adminsdk-fbsvc-198080c6ba.json`
+2. Ajouter `GEMINI_BUILD_KEY` dans le shell :
    ```bash
-   export FIREBASE_SERVICE_ACCOUNT="$(cat /c/Users/<user>/terrasses-sa.json)"
-   export GEMINI_BUILD_KEY="ta_cle_gemini"
+   export GOOGLE_APPLICATION_CREDENTIALS="/c/dev/terrasses-au-soleil/terrassesausoleil-firebase-adminsdk-fbsvc-198080c6ba.json"
+   export GEMINI_BUILD_KEY="xxx"  # même valeur que GEMINI_API_KEY côté app
+   cd /c/dev/terrasses-au-soleil && npm run build
    ```
-3. (Pour que la GitHub Action marche plus tard) ajouter ces 2 secrets sur GitHub :
-   - Repo Settings → Secrets and variables → Actions → New repository secret
-   - `FIREBASE_SERVICE_ACCOUNT` (contenu du JSON complet)
-   - `GEMINI_BUILD_KEY` (la clé Gemini)
+3. Premier run : ~5-10 min (1 req/s Nominatim sur 15 villes + Overpass + Gemini par batch).
+4. Vérifier `dist/bar-ensoleille-lyon/index.html`, `dist/terrasses/paris/11e/index.html`, etc.
+5. Pousser le `dist/` sur Hostinger manuellement (FTP/SFTP) OU commit+push vers une branche `deploy` si Hostinger peut lire une branche différente.
+
+**Option C — GitHub Action** (Task 22 du plan, pas encore implémentée) : déploiement automatisé avec secrets GitHub. À faire en session séparée si Hostinger ne fait pas l'affaire.
+
+### Tâches restantes du plan SEO (post Task 20)
+
+- **Task 21** — Soumission Search Console, vérif indexation
+- **Task 22** — GitHub Action rebuild mensuel (pour que le cache ne se périme pas)
+- **Task 23** — Étendre le scope à ~200 pages une fois la V1 indexée et validée
 
 ---
 
@@ -135,11 +122,13 @@ Le plan démarre par la Task 1 (déplacement de la SPA dans `app/`) qui est une 
 
 **URL prod :** https://terrasse-au-soleil.fr (hébergé Hostinger, auto-deploy sur push `main`)
 
-**Stack actuelle (en cours de migration hybride) :**
-- Frontend : React 19 + Vite 6 (dans `app/` après Task 1 du nouveau plan, à la racine avant)
-- Backend : Firebase Cloud Functions v2 (Node 20, TypeScript, région `europe-west1`)
-- Data : Firestore (collections `profiles`, `ads` + collections SEO à venir)
-- IA : Gemini API (`@google/genai`, clé stockée en secret Firebase)
+**Stack actuelle (hybride Astro + SPA) :**
+- Frontend statique SEO : Astro 6 + React 19 (racine, servi sur `/`, `/terrasses/...`, `/bar-ensoleille-...`, etc.)
+- SPA : React 19 + Vite 6 (dans `app/`, servie sur `/app/`)
+- Backend : Firebase Cloud Functions v2 (Node 22, TypeScript, région `europe-west1`)
+- Data : Firestore (`profiles`, `ads`, + caches SEO `osmCache`/`sunScores`/`pageIntros`/`pageFaqs`/`cityGeo`)
+- IA runtime : Gemini via Cloud Functions (clé en secret Firebase)
+- IA build : Gemini direct via `GEMINI_BUILD_KEY` (scoring soleil + intros + FAQ des pages SEO)
 - Auth : Firebase Auth
 
 **Projet Firebase :** `terrassesausoleil` (id) — TerrassesAuSoleil (nom affiché)
@@ -148,34 +137,27 @@ Le plan démarre par la Task 1 (déplacement de la SPA dans `app/`) qui est une 
 
 **Repo GitHub :** https://github.com/SteF69Lyon/Terrasses-au-soleil
 
-### Arbre actuel (avant exécution du nouveau plan)
-
-```
-/c/dev/terrasses-au-soleil/
-├── App.tsx, index.html, index.tsx, vite.config.ts, tsconfig.json  (SPA racine — sera déplacé)
-├── components/, services/, types.ts                               (SPA — sera déplacée)
-├── functions/                                                     (Cloud Functions — inchangé)
-├── firebase.json, firestore.rules, firestore.indexes.json, .firebaserc
-├── docs/superpowers/specs/          (design docs)
-├── docs/superpowers/plans/          (plans d'impl)
-├── HANDOFF.md                       (ce fichier)
-├── .env.local                       (non commité)
-└── dist/                            (généré au build, non commité)
-```
-
-### Après exécution du plan SEO (pour info)
+### Arbre actuel
 
 ```
 /c/dev/terrasses-au-soleil/
 ├── astro.config.mjs, package.json   (Astro racine)
-├── src/pages/, src/lib/, src/components/, src/data/
-├── tests/                           (Vitest)
+├── src/pages/                       (landing / + pages dynamiques SEO)
+├── src/lib/                         (cache, urls, nominatim, overpass, gemini, jsonld, buildData, firebase)
+├── src/components/                  (Layout, Breadcrumb, TerraceCard, AdSlot, FaqList, MiniMap, CityVariationPage, RelatedAreas)
+├── src/data/cities.ts               (seed 15 villes)
+├── src/styles/global.css
+├── tests/lib/                       (22 tests Vitest)
 ├── public/                          (robots.txt, og-default.jpg)
-├── app/                             (SPA Vite déplacée ici)
-│   ├── App.tsx, vite.config.ts, package.json, ...
-├── functions/                       (inchangé)
+├── app/                             (SPA Vite — React 19)
+│   ├── App.tsx, vite.config.ts, package.json, .env.local (non commité)
+│   ├── components/, services/, types.ts
+├── functions/                       (Cloud Functions — Node 22)
 ├── scripts/merge-dist.mjs           (combine les deux builds)
-└── ...
+├── firebase.json, firestore.rules, firestore.indexes.json, .firebaserc
+├── terrassesausoleil-firebase-adminsdk-*.json (SA JSON pour build local, gitignored)
+├── docs/superpowers/{specs,plans}/
+└── HANDOFF.md
 ```
 
 ---
