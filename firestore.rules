@@ -17,6 +17,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    match /osmBuildings/{cacheId} {
+      allow read: if true;
+      allow write: if false;
+    }
     match /sunScores/{osmId} {
       allow read: if true;
       allow write: if false;
