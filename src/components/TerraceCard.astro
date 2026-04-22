@@ -1,0 +1,32 @@
+---
+import type { Establishment } from '@/lib/overpass';
+import type { SunScore } from '@/lib/gemini';
+export interface Props {
+  est: Establishment & { sun: SunScore | null };
+  position: number;
+}
+const { est, position } = Astro.props;
+const typeLabel = { bar: 'Bar', cafe: 'Café', restaurant: 'Restaurant' }[est.type];
+const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${est.lat},${est.lng}`;
+---
+<article class="card" itemscope>
+  <div class="card-head">
+    <div>
+      <h2 itemprop="name"><span style="color: var(--color-muted); font-weight: normal;">{position}.</span> {est.name}</h2>
+      <div class="card-meta">
+        {typeLabel}
+        {est.address && <Fragment> · {est.address}</Fragment>}
+      </div>
+    </div>
+    {est.sun && (
+      <span class="sun-badge" aria-label={`Ensoleillement ${est.sun.sunPercent}%`}>
+        ☀️ {est.sun.sunPercent}%
+      </span>
+    )}
+  </div>
+  {est.sun?.analysis && <p>{est.sun.analysis}</p>}
+  <p>
+    <a href={mapsUrl} target="_blank" rel="noopener">Voir sur Google Maps</a>
+    {est.website && <Fragment> · <a href={est.website} target="_blank" rel="noopener">Site web</a></Fragment>}
+  </p>
+</article>
