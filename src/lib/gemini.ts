@@ -1,5 +1,4 @@
 import { GoogleGenAI } from '@google/genai';
-import type { Establishment } from './overpass';
 
 function getClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_BUILD_KEY;
@@ -7,34 +6,8 @@ function getClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
-export interface SunScore {
-  osmId: string;
-  sunPercent: number;
-  orientation: string;
-  analysis: string;
-}
-
-export async function scoreSunExposure(batch: Establishment[]): Promise<SunScore[]> {
-  if (batch.length === 0) return [];
-  const ai = getClient();
-  const list = batch
-    .map((e) => `- osmId: ${e.osmId}, nom: ${e.name}, adresse: ${e.address ?? 'inconnue'}, coord: ${e.lat},${e.lng}`)
-    .join('\n');
-  const prompt = `Pour chacun des établissements ci-dessous, estime le pourcentage d'ensoleillement de la terrasse à 17h un jour d'été (mai à août), l'orientation probable, et une analyse en 1-2 phrases. Base-toi sur l'orientation probable de la rue et l'exposition solaire à cette heure à cette latitude.
-
-${list}
-
-Réponds EXCLUSIVEMENT avec un tableau JSON, un objet par établissement, dans le même ordre, au format :
-[{"osmId":"...","sunPercent":80,"orientation":"S","analysis":"..."}, ...]`;
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-  });
-  const text = response.text ?? '[]';
-  const match = text.match(/\[[\s\S]*\]/);
-  return match ? (JSON.parse(match[0]) as SunScore[]) : [];
-}
+// NOTE: sun scoring has moved to src/lib/sun.ts (deterministic, no Gemini call).
+// Gemini is only used here for narrative content (intros and FAQs).
 
 export interface IntroInput {
   ville: string;
