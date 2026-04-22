@@ -8,7 +8,7 @@
     "build:astro": "astro build",
     "build:app": "cd app && npm ci && npm run build",
     "build:merge": "node scripts/merge-dist.mjs",
-    "build": "npm run build:app && npm run build:astro && npm run build:merge",
+    "build": "npm install && npm run build:app && npm run build:astro && npm run build:merge",
     "preview": "astro preview",
     "test": "vitest run",
     "test:watch": "vitest"
