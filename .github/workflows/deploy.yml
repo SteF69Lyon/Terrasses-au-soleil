@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # Monthly rebuild (1st day, 03:00 UTC) so osmCache (30d TTL) refreshes
+    # and new establishments from OpenStreetMap appear on the SEO pages.
+    - cron: '0 3 1 * *'
 
 concurrency:
   group: deploy-${{ github.ref }}
