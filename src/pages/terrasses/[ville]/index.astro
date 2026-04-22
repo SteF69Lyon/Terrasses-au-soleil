@@ -1,0 +1,81 @@
+---
+import Layout from '@/components/Layout.astro';
+import Breadcrumb from '@/components/Breadcrumb.astro';
+import TerraceCard from '@/components/TerraceCard.astro';
+import AdSlot from '@/components/AdSlot.astro';
+import RelatedAreas from '@/components/RelatedAreas.astro';
+import FaqList from '@/components/FaqList.astro';
+import MiniMap from '@/components/MiniMap.tsx';
+import { CITIES, findCity } from '@/data/cities';
+import { buildPageData } from '@/lib/buildData';
+import { hasBuildCredentials } from '@/lib/firebase';
+import { absoluteUrl, villeUrl, SITE } from '@/lib/urls';
+import { breadcrumbList, itemList, webPage, faqPage } from '@/lib/jsonld';
+
+export async function getStaticPaths() {
+  if (!hasBuildCredentials()) {
+    console.warn('[seo] Missing FIREBASE credentials or GEMINI_BUILD_KEY — skipping ville pages.');
+    return [];
+  }
+  return CITIES.map((c) => ({ params: { ville: c.slug } }));
+}
+
+const { ville } = Astro.params;
+const city = findCity(ville!);
+if (!city) throw new Error(`Unknown ville ${ville}`);
+
+const data = await buildPageData(city, null);
+
+const pageTitle = `Terrasses ensoleillées à ${city.name} — Terrasses au soleil`;
+const pageDesc = `Les meilleures terrasses au soleil à ${city.name}. ${data.establishments.length} adresses avec analyse d'ensoleillement.`;
+const canonical = absoluteUrl(villeUrl(city.slug));
+
+const crumbs = [
+  { name: 'Accueil', url: SITE + '/' },
+  { name: 'Terrasses', url: SITE + '/terrasses/' },
+  { name: city.name, url: canonical },
+];
+
+const jsonld = [
+  breadcrumbList(crumbs),
+  webPage({ name: pageTitle, description: pageDesc, url: canonical, aboutPlaceName: city.name }),
+  itemList(data.establishments.map((e) => ({ name: e.name, type: e.type, address: e.address, lat: e.lat, lng: e.lng }))),
+  faqPage(data.faq),
+];
+
+const relatedQuartiers = city.quartiers.slice(0, 5).map((x) => ({
+  ville: city.name, quartier: x.name, villeSlug: city.slug, quartierSlug: x.slug,
+}));
+
+const center: [number, number] = [
+  (data.bbox.north + data.bbox.south) / 2,
+  (data.bbox.east + data.bbox.west) / 2,
+];
+const markers = data.establishments.map((e) => ({ name: e.name, lat: e.lat, lng: e.lng }));
+---
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+  <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
+  <h1>Terrasses ensoleillées à {city.name}</h1>
+  <p>{data.intro}</p>
+
+  <AdSlot slotId="1111111111" format="horizontal" />
+
+  <section>
+    <h2>Top {data.establishments.length} terrasses au soleil</h2>
+    {data.establishments.slice(0, 3).map((e, i) => <TerraceCard est={e} position={i + 1} />)}
+    <AdSlot slotId="2222222222" format="rectangle" />
+    {data.establishments.slice(3, 10).map((e, i) => <TerraceCard est={e} position={i + 4} />)}
+    <AdSlot slotId="3333333333" format="rectangle" />
+    {data.establishments.slice(10).map((e, i) => <TerraceCard est={e} position={i + 11} />)}
+  </section>
+
+  <MiniMap client:only="react" markers={markers} center={center} zoom={12} />
+
+  {relatedQuartiers.length > 0 && <RelatedAreas items={relatedQuartiers} title={`Quartiers de ${city.name}`} />}
+
+  <a class="cta" href={`/app/?city=${encodeURIComponent(city.name)}`}>
+    Affiner en temps réel →
+  </a>
+
+  <FaqList items={data.faq} />
+</Layout>

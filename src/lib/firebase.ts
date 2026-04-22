@@ -4,6 +4,14 @@ import { readFileSync } from 'node:fs';
 
 let cachedDb: Firestore | null = null;
 
+export function hasBuildCredentials(): boolean {
+  return Boolean(
+    process.env.FIREBASE_SERVICE_ACCOUNT ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+      process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  ) && Boolean(process.env.GEMINI_BUILD_KEY);
+}
+
 function loadCredentials(): object {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (raw) return JSON.parse(raw);
