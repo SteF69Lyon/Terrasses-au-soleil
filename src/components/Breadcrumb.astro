@@ -1,0 +1,13 @@
+---
+export interface Crumb { name: string; url: string }
+export interface Props { items: Crumb[] }
+const { items } = Astro.props;
+---
+<nav class="breadcrumb" aria-label="Fil d'Ariane">
+  {items.map((it, i) => (
+    <Fragment>
+      {i > 0 && <span class="sep">›</span>}
+      {i < items.length - 1 ? <a href={it.url}>{it.name}</a> : <span>{it.name}</span>}
+    </Fragment>
+  ))}
+</nav>

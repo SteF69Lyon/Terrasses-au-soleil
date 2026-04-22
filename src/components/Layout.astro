@@ -1,0 +1,57 @@
+---
+import '@/styles/global.css';
+export interface Props {
+  title: string;
+  description: string;
+  canonical: string;
+  ogImage?: string;
+  jsonld?: object[];
+}
+const { title, description, canonical, ogImage = '/og-default.jpg', jsonld = [] } = Astro.props;
+const siteOgImage = new URL(ogImage, Astro.site).toString();
+const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
+---
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="fr" href={canonical} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={siteOgImage} />
+    <meta property="og:locale" content="fr_FR" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={siteOgImage} />
+
+    {jsonld.map((ld) => (
+      <script is:inline type="application/ld+json" set:html={JSON.stringify(ld)} />
+    ))}
+
+    {adsenseClient && (
+      <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`} crossorigin="anonymous"></script>
+    )}
+  </head>
+  <body>
+    <header class="header">
+      <div class="container header-inner">
+        <a href="/"><strong>🌞 Terrasses au soleil</strong></a>
+        <nav><a href="/app/">Recherche live</a></nav>
+      </div>
+    </header>
+    <main class="container">
+      <slot />
+    </main>
+    <footer class="container" style="color: var(--color-muted); font-size: 0.85rem;">
+      <p>Terrasses-au-soleil.fr — données OpenStreetMap © contributeurs. Analyses solaires assistées par IA.</p>
+    </footer>
+  </body>
+</html>

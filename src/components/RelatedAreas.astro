@@ -1,0 +1,18 @@
+---
+import { villeUrl, quartierUrl } from '@/lib/urls';
+export interface RelatedArea { ville: string; quartier?: string; villeSlug: string; quartierSlug?: string }
+export interface Props { items: RelatedArea[]; title?: string }
+const { items, title = 'Autres quartiers' } = Astro.props;
+---
+{items.length > 0 && (
+  <section>
+    <h2>{title}</h2>
+    <nav class="related-areas" aria-label={title}>
+      {items.map((it) => (
+        <a href={it.quartierSlug ? quartierUrl(it.villeSlug, it.quartierSlug) : villeUrl(it.villeSlug)}>
+          {it.quartier ?? it.ville}
+        </a>
+      ))}
+    </nav>
+  </section>
+)}
