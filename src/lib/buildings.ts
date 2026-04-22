@@ -196,6 +196,8 @@ export function isShadowed(
     const c = centroid(b.polygon);
     const centerLocal = toLocal(point, c);
     const centerDist = Math.hypot(centerLocal[0], centerLocal[1]);
+    // Skip the building that hosts (or is adjacent to) the terrace itself.
+    if (centerDist < 8) continue;
     const maxShadow = b.height / tanAlt;
     if (centerDist > maxShadow + 60) continue;
 

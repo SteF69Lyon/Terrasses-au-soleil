@@ -126,9 +126,10 @@ export function scoreEstablishment(
     cloudCover: cloudCoverFactor,
   });
   const basePercent = result.sunPercent;
-  const finalPercent = shadowed ? Math.round(basePercent * 0.2) : basePercent;
+  // Shadowed terraces still receive diffuse & ambient light — 0.4 factor reflects that.
+  const finalPercent = shadowed ? Math.round(basePercent * 0.4) : basePercent;
   const analysis = shadowed
-    ? `${result.explanation} Ombre portée d'un bâtiment voisin détectée.`
+    ? `${result.explanation} Ombre portée d'un bâtiment voisin.`
     : result.explanation;
   return {
     osmId: est.osmId,
