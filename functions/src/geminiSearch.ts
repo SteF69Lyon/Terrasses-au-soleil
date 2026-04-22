@@ -24,17 +24,27 @@ export const geminiSearch = onCall(
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const prompt = `Recherche des terrasses à "${location}" pour le ${date} vers ${time}.
-    Type d'établissement: ${type}.
-    Analyse l'ensoleillement (pourcentage de 0 à 100%) selon l'orientation de la rue et l'heure.
-    Réponds EXCLUSIVEMENT sous forme de tableau JSON:
-    [{"name": "Nom", "address": "Adresse complète", "type": "bar|restaurant|cafe", "sunExposure": 80, "description": "Analyse du soleil", "rating": 4.5, "lat": 48.8, "lng": 2.3}]`;
+    const typeFilter = type === 'all' ? 'bars, restaurants, cafés et hôtels' : `${type}s`;
+    const prompt = `Recherche TOUS les ${typeFilter} avec terrasse à "${location}" pour le ${date} vers ${time}.
+Sois exhaustif : liste tous les établissements ouverts que tu peux identifier dans cette zone, jusqu'à 30 résultats. Ne te limite pas à quelques suggestions.
+
+Pour chacun :
+- Analyse l'ensoleillement de la terrasse à cette heure précise (0 à 100%) en tenant compte de l'orientation de la rue, de la hauteur du soleil à cette date et heure à cette latitude, et de l'ombre portée des bâtiments.
+- Rédige une courte description (1 phrase, axée soleil/ambiance).
+- Indique la note Google Maps si tu la connais, sinon 4.0 par défaut.
+- Donne les coordonnées lat/lng aussi précises que possible.
+
+Réponds EXCLUSIVEMENT sous forme de tableau JSON valide, sans texte avant ni après :
+[{"name":"...","address":"...","type":"bar|restaurant|cafe|hôtel","sunExposure":80,"description":"...","rating":4.5,"lat":48.8,"lng":2.3}]`;
 
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
-        config: { tools: [{ googleSearch: {} }] },
+        config: {
+          tools: [{ googleSearch: {} }],
+          maxOutputTokens: 8192,
+        },
       });
 
       const text = response.text || '[]';
