@@ -1,5 +1,16 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { GoogleGenAI } from '@google/genai';
+import { computeSunScore } from './sun';
+import { fetchCloudCoverFactor } from './weather';
+
+interface RawEstablishment {
+  name: string;
+  address: string;
+  type: string;
+  rating?: number;
+  lat: number;
+  lng: number;
+}
 
 export const geminiSearch = onCall(
   { region: 'europe-west1', secrets: ['GEMINI_API_KEY'], invoker: 'public' },
@@ -22,20 +33,28 @@ export const geminiSearch = onCall(
       throw new HttpsError('internal', 'Clé API non configurée.');
     }
 
+    const targetDate = parseUserDateTime(date, time);
+    if (!targetDate) {
+      throw new HttpsError('invalid-argument', 'Format date/heure invalide.');
+    }
+
     const ai = new GoogleGenAI({ apiKey });
 
     const typeFilter = type === 'all' ? 'bars, restaurants, cafés et hôtels' : `${type}s`;
-    const prompt = `Recherche TOUS les ${typeFilter} avec terrasse à "${location}" pour le ${date} vers ${time}.
+    const prompt = `Recherche TOUS les ${typeFilter} avec terrasse à "${location}".
 Sois exhaustif : liste tous les établissements ouverts que tu peux identifier dans cette zone, jusqu'à 30 résultats. Ne te limite pas à quelques suggestions.
 
-Pour chacun :
-- Analyse l'ensoleillement de la terrasse à cette heure précise (0 à 100%) en tenant compte de l'orientation de la rue, de la hauteur du soleil à cette date et heure à cette latitude, et de l'ombre portée des bâtiments.
-- Rédige une courte description (1 phrase, axée soleil/ambiance).
-- Indique la note Google Maps si tu la connais, sinon 4.0 par défaut.
-- Donne les coordonnées lat/lng aussi précises que possible.
+Pour chacun, fournis :
+- name : nom de l'établissement
+- address : adresse complète postale
+- type : bar | restaurant | cafe | hôtel
+- rating : note Google Maps (nombre décimal), 4.0 si inconnu
+- lat / lng : coordonnées GPS aussi précises que possible
+
+N'invente AUCUNE donnée d'ensoleillement : ce sera calculé en dehors.
 
 Réponds EXCLUSIVEMENT sous forme de tableau JSON valide, sans texte avant ni après :
-[{"name":"...","address":"...","type":"bar|restaurant|cafe|hôtel","sunExposure":80,"description":"...","rating":4.5,"lat":48.8,"lng":2.3}]`;
+[{"name":"...","address":"...","type":"bar","rating":4.5,"lat":48.8,"lng":2.3}]`;
 
     try {
       const response = await ai.models.generateContent({
@@ -48,12 +67,11 @@ Réponds EXCLUSIVEMENT sous forme de tableau JSON valide, sans texte avant ni ap
       });
 
       const text = response.text || '[]';
-      const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
-
-      let results: any[] = [];
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      let raw: RawEstablishment[] = [];
       if (jsonMatch) {
         try {
-          results = JSON.parse(jsonMatch[0]);
+          raw = JSON.parse(jsonMatch[0]);
         } catch {
           throw new HttpsError('internal', 'La réponse Gemini ne contient pas de JSON valide.');
         }
@@ -64,10 +82,59 @@ Réponds EXCLUSIVEMENT sous forme de tableau JSON valide, sans texte avant ni ap
         .map((chunk: any) => (chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null))
         .filter(Boolean);
 
+      const zoneLat = lat ?? averageLat(raw);
+      const zoneLng = lng ?? averageLng(raw);
+      const cloudCover = zoneLat != null && zoneLng != null
+        ? await fetchCloudCoverFactor({ lat: zoneLat, lng: zoneLng, date: targetDate })
+        : null;
+
+      const results = raw.map((r) => {
+        const score = computeSunScore({
+          lat: r.lat,
+          lng: r.lng,
+          date: targetDate,
+          cloudCover: cloudCover ?? 0,
+        });
+        return {
+          name: r.name,
+          address: r.address,
+          type: r.type,
+          rating: r.rating ?? 4.0,
+          lat: r.lat,
+          lng: r.lng,
+          sunExposure: score.sunPercent,
+          description: score.explanation,
+        };
+      });
+
+      results.sort((a, b) => b.sunExposure - a.sunExposure);
+
       return { results, sources };
     } catch (e: any) {
       if (e instanceof HttpsError) throw e;
       throw new HttpsError('unavailable', 'Service Gemini temporairement indisponible.');
     }
-  }
+  },
 );
+
+function parseUserDateTime(date: string, time: string): Date | null {
+  const m = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mn = Number(m[2]);
+  const d = new Date(`${date}T${String(h).padStart(2, '0')}:${String(mn).padStart(2, '0')}:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function averageLat(list: RawEstablishment[]): number | null {
+  const valid = list.filter((e) => typeof e.lat === 'number');
+  if (!valid.length) return null;
+  return valid.reduce((a, e) => a + e.lat, 0) / valid.length;
+}
+
+function averageLng(list: RawEstablishment[]): number | null {
+  const valid = list.filter((e) => typeof e.lng === 'number');
+  if (!valid.length) return null;
+  return valid.reduce((a, e) => a + e.lng, 0) / valid.length;
+}
