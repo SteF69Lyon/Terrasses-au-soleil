@@ -28,7 +28,7 @@ Réponds EXCLUSIVEMENT avec un tableau JSON, un objet par établissement, dans l
 [{"osmId":"...","sunPercent":80,"orientation":"S","analysis":"..."}, ...]`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     contents: prompt,
   });
   const text = response.text ?? '[]';
@@ -49,7 +49,7 @@ export async function generateIntro(input: IntroInput): Promise<string> {
   const prompt = `Rédige une introduction de 150 à 200 mots pour une page web intitulée "Terrasses ensoleillées à ${input.quartier ?? input.ville}". Cible : ${target}, coordonnées ${input.lat},${input.lng}. Évoque l'ambiance du quartier, l'orientation typique des rues, les heures de la journée où le soleil est le mieux. Ton chaleureux, factuel, sans superlatifs creux. Pas d'introduction méta ("Voici un texte..."), pas de conclusion qui commence par "En somme". Démarre directement dans le sujet.`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     contents: prompt,
   });
   return (response.text ?? '').trim();
@@ -74,7 +74,7 @@ Réponds EXCLUSIVEMENT avec un tableau JSON au format :
 [{"question":"...","answer":"..."}, ...]`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     contents: prompt,
   });
   const text = response.text ?? '[]';
