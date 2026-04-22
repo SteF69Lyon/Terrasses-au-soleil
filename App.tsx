@@ -405,7 +405,13 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <SearchAssistant />
+      <SearchAssistant
+        terraces={filteredTerraces}
+        preferences={preferences}
+        locationHint={searchQuery}
+        displayDateLabel={displayDateLabel}
+        onTerracesUpdated={setTerraces}
+      />
       {isProfileOpen && (
         <ProfileModal 
           profile={profile} 
