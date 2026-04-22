@@ -13,7 +13,12 @@ export interface Establishment {
   outdoorSeating: boolean;
 }
 
-const ENDPOINT = 'https://overpass-api.de/api/interpreter';
+const ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+];
+const MAX_ATTEMPTS = 4;
 
 function buildQuery(bbox: BBox): string {
   const { south, west, north, east } = bbox;
@@ -50,22 +55,39 @@ function addressOf(tags: Record<string, string>): string | null {
   return [housenumber, street, city].filter(Boolean).join(' ');
 }
 
+async function fetchWithRetry(query: string): Promise<{ elements: RawElement[] }> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const endpoint = ENDPOINTS[attempt % ENDPOINTS.length];
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+          'User-Agent': 'terrasse-au-soleil.fr/1.0 (contact: sflandrin@outlook.com)',
+        },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+      if (res.ok) return (await res.json()) as { elements: RawElement[] };
+      const bodyText = await res.text().catch(() => '');
+      const isRetryable = res.status >= 500 || res.status === 429 || res.status === 408;
+      lastError = new Error(`Overpass HTTP ${res.status} at ${endpoint}: ${bodyText.slice(0, 200)}`);
+      if (!isRetryable) throw lastError;
+    } catch (e: any) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+    }
+    if (attempt < MAX_ATTEMPTS - 1) {
+      const delayMs = 2000 * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastError ?? new Error('Overpass: all attempts failed');
+}
+
 export async function fetchEstablishments(bbox: BBox): Promise<Establishment[]> {
   const query = buildQuery(bbox);
-  const res = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json',
-      'User-Agent': 'terrasse-au-soleil.fr/1.0 (contact: sflandrin@outlook.com)',
-    },
-    body: `data=${encodeURIComponent(query)}`,
-  });
-  if (!res.ok) {
-    const bodyText = await res.text().catch(() => '');
-    throw new Error(`Overpass HTTP ${res.status}: ${bodyText.slice(0, 200)}`);
-  }
-  const json = (await res.json()) as { elements: RawElement[] };
+  const json = await fetchWithRetry(query);
   const list: Establishment[] = [];
   for (const el of json.elements) {
     const tags = el.tags ?? {};
