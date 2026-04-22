@@ -52,6 +52,15 @@ jobs:
           echo "--- number of HTML pages ---"
           find dist/ -name '*.html' | wc -l
 
+      - name: Normalize server-dir (ensure trailing slash)
+        id: ftp
+        env:
+          RAW_DIR: ${{ secrets.FTP_SERVER_DIR }}
+        run: |
+          DIR="$RAW_DIR"
+          [[ "$DIR" != */ ]] && DIR="$DIR/"
+          echo "server_dir=$DIR" >> "$GITHUB_OUTPUT"
+
       - name: Deploy via FTPS to Hostinger
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -60,7 +69,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           local-dir: ./dist/
-          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          server-dir: ${{ steps.ftp.outputs.server_dir }}
           exclude: |
             **/.git*
             **/.git*/**
