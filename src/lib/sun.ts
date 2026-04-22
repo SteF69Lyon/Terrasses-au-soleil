@@ -116,6 +116,7 @@ export function scoreEstablishment(
   est: EstablishmentCoord,
   date: Date = SEO_REFERENCE_DATE,
   cloudCoverFactor?: number,
+  shadowed?: boolean,
 ): SunScore {
   const result = computeSunScore({
     lat: est.lat,
@@ -124,10 +125,15 @@ export function scoreEstablishment(
     facing: est.facing,
     cloudCover: cloudCoverFactor,
   });
+  const basePercent = result.sunPercent;
+  const finalPercent = shadowed ? Math.round(basePercent * 0.2) : basePercent;
+  const analysis = shadowed
+    ? `${result.explanation} Ombre portée d'un bâtiment voisin détectée.`
+    : result.explanation;
   return {
     osmId: est.osmId,
-    sunPercent: result.sunPercent,
+    sunPercent: finalPercent,
     orientation: cardinalShort(result.facingDeg),
-    analysis: result.explanation,
+    analysis,
   };
 }

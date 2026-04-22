@@ -3,7 +3,8 @@ import { getCached, setCached, TTL } from './cache';
 import { geocodeThrottled } from './nominatim';
 import { fetchEstablishments, type Establishment } from './overpass';
 import { generateIntro, generateFaq, type FaqEntry } from './gemini';
-import { scoreEstablishment, SEO_REFERENCE_DATE, type SunScore } from './sun';
+import { scoreEstablishment, SEO_REFERENCE_DATE, computeSunScore, type SunScore } from './sun';
+import { fetchBuildings, inferFacing, isShadowed, type Building } from './buildings';
 import type { BBox } from './nominatim';
 import type { City, Quartier } from '../data/cities';
 
@@ -39,13 +40,21 @@ async function getOrFetchEstablishments(pageId: string, bbox: BBox): Promise<Est
   return trimmed;
 }
 
-async function getOrComputeSunScore(est: Establishment): Promise<SunScore> {
+async function getOrComputeSunScore(est: Establishment, buildings: Building[]): Promise<SunScore> {
   const db = getDb();
-  // Prefix "d1_" (deterministic v1) invalides the previous Gemini-generated cache entries.
-  const cacheId = encodeURIComponent(`d1_${est.osmId}`);
+  // Prefix "d2_" (deterministic v2 with buildings). Any prior cache is invalidated.
+  const cacheId = encodeURIComponent(`d2_${est.osmId}`);
   const cached = await getCached<SunScore>(db, 'sunScores', cacheId, TTL.SUN_SCORE);
   if (cached) return cached;
-  const score = scoreEstablishment(est, SEO_REFERENCE_DATE);
+
+  const point: [number, number] = [est.lng, est.lat];
+  const facing = inferFacing(point, buildings) ?? 180;
+  const geom = computeSunScore({ lat: est.lat, lng: est.lng, date: SEO_REFERENCE_DATE, facing });
+  const shadowed =
+    geom.sunAltitudeDeg > 0 &&
+    isShadowed(point, buildings, geom.sunAzimuthDeg, geom.sunAltitudeDeg);
+
+  const score = scoreEstablishment({ ...est, facing }, SEO_REFERENCE_DATE, undefined, shadowed);
   await setCached(db, 'sunScores', cacheId, score);
   return score;
 }
@@ -84,8 +93,10 @@ export async function buildPageData(city: City, quartier: Quartier | null): Prom
   const pool = withSeating.length >= 10 ? withSeating : all;
   const top = pool.slice(0, 15);
 
+  const buildings = await fetchBuildings(bbox);
+
   const enriched = await Promise.all(
-    top.map(async (e) => ({ ...e, sun: await getOrComputeSunScore(e) })),
+    top.map(async (e) => ({ ...e, sun: await getOrComputeSunScore(e, buildings) })),
   );
 
   const intro = await getOrGenerateIntro(pageId, city, quartier, bbox);
