@@ -2,6 +2,7 @@
 import React from 'react';
 import { Terrace, SunLevel } from '../types';
 import { gemini } from '../services/geminiService';
+import SunHourlyChart from './SunHourlyChart';
 
 interface TerraceCardProps {
   terrace: Terrace;
@@ -61,11 +62,16 @@ const TerraceCard: React.FC<TerraceCardProps> = ({ terrace, isFavorite, onToggle
           <span className="line-clamp-1">{terrace.address}</span>
         </p>
         
-        <p className="text-sm text-slate-600 line-clamp-2 mb-4 flex-1 italic">
+        <p className="text-sm text-slate-600 line-clamp-2 mb-2 flex-1 italic">
           "{terrace.description}"
         </p>
 
-        <div className="flex gap-2">
+        <SunHourlyChart
+          lat={terrace.coordinates.lat}
+          lng={terrace.coordinates.lng}
+        />
+
+        <div className="flex gap-2 mt-3">
           <button 
             onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${terrace.coordinates.lat},${terrace.coordinates.lng}`, '_blank')}
             className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-700 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
