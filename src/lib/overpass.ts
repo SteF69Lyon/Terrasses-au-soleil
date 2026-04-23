@@ -13,6 +13,8 @@ export interface Establishment {
   outdoorSeating: boolean;
   /** Image URL (direct image link or derived from wikimedia_commons tag). null if unknown. */
   imageUrl: string | null;
+  /** OSM `opening_hours` tag as raw text (to be parsed client-side by src/lib/openingHours.ts). */
+  openingHours: string | null;
 }
 
 function imageUrlFromTags(tags: Record<string, string>): string | null {
@@ -124,6 +126,7 @@ export async function fetchEstablishments(bbox: BBox): Promise<Establishment[]> 
       website: tags.website ?? tags['contact:website'] ?? null,
       outdoorSeating: tags.outdoor_seating === 'yes',
       imageUrl: imageUrlFromTags(tags),
+      openingHours: tags.opening_hours ?? null,
     });
   }
   return list;

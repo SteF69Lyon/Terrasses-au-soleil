@@ -19,6 +19,7 @@ const facingDeg = est.sun?.facingDeg ?? 180;
   data-lng={est.lng}
   data-facing={facingDeg}
   data-name={est.name}
+  data-opening-hours={est.openingHours ?? ''}
 >
   {est.imageUrl && (
     <div class="card-photo">
@@ -39,7 +40,10 @@ const facingDeg = est.sun?.facingDeg ?? 180;
       </span>
     )}
   </div>
-  <div class="live-sun" data-live-sun aria-live="polite"></div>
+  <div class="card-flags">
+    <span class="live-sun" data-live-sun aria-live="polite"></span>
+    <span class="open-status" data-open-status aria-live="polite"></span>
+  </div>
   <div class="hourly-chart" data-hourly-chart hidden></div>
   {est.sun?.analysis && <p>{est.sun.analysis}</p>}
   <p>

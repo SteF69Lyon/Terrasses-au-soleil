@@ -77,8 +77,8 @@ async function getOrFetchBuildings(pageId: string, bbox: BBox): Promise<Building
 
 async function getOrFetchEstablishments(pageId: string, bbox: BBox): Promise<Establishment[]> {
   const db = getDb();
-  // v2 adds imageUrl on each establishment.
-  const cacheId = `v2_${pageId}`;
+  // v3 adds openingHours.
+  const cacheId = `v3_${pageId}`;
   const cached = await getCached<Establishment[]>(db, 'osmCache', cacheId, TTL.OSM);
   if (cached) return cached;
   const all = await fetchEstablishments(bbox);
