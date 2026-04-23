@@ -67,14 +67,35 @@ Ouvrir Claude Code dans le repo et dire : *"Reprends le travail, lis HANDOFF.md"
 
 **Site en prod fonctionnel pour les pages SEO.** Seul risque résiduel : la search SPA peut encore foirer sur certaines queries spécifiques (format Gemini imprévisible) — à surveiller.
 
-**Prochains chantiers envisageables, par ordre de ROI :**
+**Roadmap complète "star de l'été" (établie 2026-04-23 PM, à attaquer en sessions suivantes) :**
 
-1. **Indexation Google** (passif, 1-4 semaines) : Search Console propriété vérifiée, sitemap soumis. Patienter. Partager le lien sur forums/réseaux pour accélérer le crawl initial.
-2. **AdSense** : demander validation compte → récupérer client ID → ajouter en secret GitHub `PUBLIC_ADSENSE_CLIENT`. Emplacements déjà câblés côté code, ils apparaîtront au prochain build.
-3. **Promotion payante** : ajouter un champ `promoted: boolean` ou `promotionScore: number` sur chaque établissement. Trier par (promotionScore DESC, sunExposure DESC). Badge "Partenaire" visible.
-4. **Phase 3 scoring** : imagerie satellite ou Street View pour détecter orientation réelle (au-delà du polygone OSM).
-5. **Bundle SPA 968 kB** → code splitting pour Core Web Vitals.
-6. **Expansion à 250-300 pages** : plus de villes (Le Mans, Limoges, Poitiers, Pau, Perpignan, Metz, Nancy, Caen, Brest).
+### 🔥 Quick wins (priorisés, chacun 20-30 min)
+
+- **A — Filtre "ouvert maintenant"** : parser le tag OSM `opening_hours` (présent sur ~60% des établissements), filtrer ou griser ceux fermés à l'heure courante. Change radicalement l'utilité côté user ("je veux un café dans 10 min").
+- **B — Live-sun + hourly chart dans la SPA** : porter le module `src/scripts/live-sun.ts` dans `app/components/TerraceCard.tsx` pour que la SPA ait la même expérience live que les pages SEO. Cohérence UX, gratuit.
+- **C — Markers Leaflet colorés par score soleil** : actuellement tous bleus. Rouge (<25%) → orange → jaune (>65%). Visualisation instantanée sur la carte.
+- **D — Bouton "Partager cette terrasse"** : deep-link + copier le lien, opti WhatsApp/Instagram/Twitter. Favorise la viralité entre amis.
+
+### 📈 Moyen terme (2-4h chacun)
+
+- **E — Filtres avancés pages SEO** : checkboxes "terrasse avec vue" (`view`), "bord de l'eau" (`waterway` à proximité), "enfants acceptés" (`child_friendly`), "chien accepté" (`dog`), etc. Tags OSM existants.
+- **F — Section blog SEO** : 5-10 articles longue traîne type *"Où boire un verre au soleil le dimanche à Paris"*, *"Les 10 terrasses les plus ensoleillées à Lyon en septembre"*. Énorme levier Google pour les requêtes complexes. À générer via Gemini au build et cacher 1 an.
+- **G — Push notifications web** : "Demain 26°C et 18h d'ensoleillement — votre terrasse favorite à Lyon est à 85% de soleil". Service Worker + abonnement. Rétention user.
+
+### 🚀 Long terme (gros chantiers)
+
+- **H — PWA installable** : manifest + service worker + cache offline. Permet installation comme app mobile sans app store. Intéressant pour les users fidèles.
+- **I — Multi-langue EN/IT/DE** : Astro i18n + traduction des templates. Cible touristes l'été (fort potentiel trafic Paris, Nice, Marseille).
+- **J — User reviews** : scores soleil crowdsourcés, commentaires, photos. Compte Firebase Auth + Firestore `reviews` collection. Augmente la qualité perçue et le content unique.
+
+### Chantiers techniques / business en cours ou à planifier
+
+- **Indexation Google** (passif, 1-4 semaines) : suivre le compteur "Pages" dans GSC.
+- **AdSense** : valider compte → client ID → secret GitHub `PUBLIC_ADSENSE_CLIENT`. Emplacements déjà câblés.
+- **Promotion payante** : champ `promotionScore` per établissement, tri pondéré, badge "Partenaire".
+- **Phase 3 scoring soleil** : imagerie satellite/Street View pour orientation réelle au-delà du polygone OSM.
+- **Bundle SPA 968 kB** : dynamic imports dans `app/services/geminiService.ts` pour Core Web Vitals.
+- **Expansion 250-300 pages** : plus de villes (Le Mans, Limoges, Poitiers, Pau, Perpignan, Metz, Nancy, Caen, Brest).
 
 ---
 
