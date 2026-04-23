@@ -71,18 +71,21 @@ Réponds EXCLUSIVEMENT sous forme de tableau JSON valide, sans texte avant ni ap
       throw new HttpsError('unavailable', `Service Gemini indisponible : ${e?.message ?? 'inconnu'}`);
     }
 
-    const text = response.text || '[]';
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    const text = response.text || '';
+    const jsonStr = extractJsonArray(text);
     let raw: RawEstablishment[] = [];
-    if (jsonMatch) {
+    if (jsonStr) {
       try {
-        raw = JSON.parse(jsonMatch[0]);
+        raw = JSON.parse(jsonStr);
+        if (!Array.isArray(raw)) raw = [];
       } catch (e: any) {
-        console.error('[geminiSearch] JSON parse failed. Response text (first 500 chars):', text.slice(0, 500));
-        throw new HttpsError('internal', 'La réponse Gemini n\'est pas un JSON valide.');
+        console.error(
+          `[geminiSearch] JSON parse failed (len=${jsonStr.length}). Head: ${jsonStr.slice(0, 300)} | Tail: ${jsonStr.slice(-150)}`,
+        );
+        throw new HttpsError('internal', "La réponse Gemini n'est pas un JSON valide.");
       }
     } else {
-      console.warn('[geminiSearch] No JSON array found in response. Text (first 300 chars):', text.slice(0, 300));
+      console.warn('[geminiSearch] No JSON array in Gemini response. Text head:', text.slice(0, 300));
     }
 
     // Keep only entries with valid numeric coordinates — skip Gemini hallucinations.
@@ -142,6 +145,40 @@ Réponds EXCLUSIVEMENT sous forme de tableau JSON valide, sans texte avant ni ap
     return { results, sources };
   },
 );
+
+/**
+ * Extracts the first JSON array substring from an arbitrary text blob.
+ * Robust against :
+ *   - markdown code fences (```json ... ```)
+ *   - prose before/after the array (grounding citations, commentary)
+ *   - stray [ or ] characters inside strings
+ * Returns null if no balanced JSON array can be found.
+ */
+function extractJsonArray(raw: string): string | null {
+  // Remove common markdown fences so the bracket scan sees the JSON cleanly.
+  const text = raw.replace(/```(?:json)?/gi, '');
+  const start = text.indexOf('[');
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\') { escape = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+
+    if (c === '[') depth++;
+    else if (c === ']') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
 
 function parseUserDateTime(date: string, time: string): Date | null {
   const m = time.match(/^(\d{1,2}):(\d{2})$/);
