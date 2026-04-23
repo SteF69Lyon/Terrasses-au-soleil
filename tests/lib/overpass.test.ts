@@ -42,6 +42,50 @@ describe('overpass.fetchEstablishments', () => {
     expect(list[1].type).toBe('cafe');
   });
 
+  it('extracts wikimedia image URL when present', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        elements: [
+          {
+            type: 'node',
+            id: 99,
+            lat: 45,
+            lon: 4,
+            tags: {
+              name: 'Café des Arts',
+              amenity: 'cafe',
+              wikimedia_commons: 'File:Cafe des Arts Lyon.jpg',
+            },
+          },
+        ],
+      }),
+    }));
+    const list = await fetchEstablishments({ south: 0, north: 1, west: 0, east: 1 });
+    expect(list).toHaveLength(1);
+    expect(list[0].imageUrl).toContain('Special:FilePath');
+    expect(list[0].imageUrl).toContain('Cafe');
+  });
+
+  it('uses direct image tag when present', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        elements: [
+          {
+            type: 'node',
+            id: 100,
+            lat: 45,
+            lon: 4,
+            tags: { name: 'X', amenity: 'bar', image: 'https://example.com/x.jpg' },
+          },
+        ],
+      }),
+    }));
+    const list = await fetchEstablishments({ south: 0, north: 1, west: 0, east: 1 });
+    expect(list[0].imageUrl).toBe('https://example.com/x.jpg');
+  });
+
   it('skips elements without name', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,

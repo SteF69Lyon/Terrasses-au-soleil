@@ -11,6 +11,23 @@ export interface Establishment {
   address: string | null;
   website: string | null;
   outdoorSeating: boolean;
+  /** Image URL (direct image link or derived from wikimedia_commons tag). null if unknown. */
+  imageUrl: string | null;
+}
+
+function imageUrlFromTags(tags: Record<string, string>): string | null {
+  const direct = tags.image;
+  if (direct && /^https?:\/\//.test(direct)) return direct;
+
+  const commons = tags.wikimedia_commons ?? tags['wikimedia_commons:name'];
+  if (commons) {
+    const match = commons.match(/^File:(.+)$/i);
+    if (match) {
+      const filename = match[1].trim().replace(/ /g, '_');
+      return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=480`;
+    }
+  }
+  return null;
 }
 
 const ENDPOINTS = [
@@ -106,6 +123,7 @@ export async function fetchEstablishments(bbox: BBox): Promise<Establishment[]> 
       address: addressOf(tags),
       website: tags.website ?? tags['contact:website'] ?? null,
       outdoorSeating: tags.outdoor_seating === 'yes',
+      imageUrl: imageUrlFromTags(tags),
     });
   }
   return list;

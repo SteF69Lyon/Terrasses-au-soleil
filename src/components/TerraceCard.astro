@@ -20,6 +20,11 @@ const facingDeg = est.sun?.facingDeg ?? 180;
   data-facing={facingDeg}
   data-name={est.name}
 >
+  {est.imageUrl && (
+    <div class="card-photo">
+      <img src={est.imageUrl} alt={`Photo de ${est.name}`} loading="lazy" width="480" height="280" />
+    </div>
+  )}
   <div class="card-head">
     <div>
       <h2 itemprop="name"><span style="color: var(--color-muted); font-weight: normal;">{position}.</span> {est.name}</h2>
