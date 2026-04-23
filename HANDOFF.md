@@ -48,11 +48,25 @@ Ouvrir Claude Code dans le repo et dire : *"Reprends le travail, lis HANDOFF.md"
 
 ---
 
-## 🌅 Reprise — à faire en premier
+## 🌅 Reprise — à lire en premier
 
-**Dernière grosse session** : 2026-04-23 = chantier "star de l'été" (4 PRs : live sun widget, graphique horaire, photos OSM, OG cards) + fix Nominatim résilience.
+**Dernière session** : 2026-04-23 matin. Chantier "star de l'été" complet (PRs #26-29), puis 2 fixes rapides sur la SPA search (PRs #31-32).
 
-**Site en prod 100% fonctionnel.** Rien de bloquant à réparer. Voici les prochains chantiers envisageables, par ordre de ROI :
+**À valider dès la reprise (1 min) :**
+
+1. **Recherche SPA** : aller sur https://terrasse-au-soleil.fr/app/ et taper une recherche spécifique du type `café juliette Lyon` (c'est le cas qui foirait). La dernière PR #32 corrige un extracteur JSON défaillant sur la réponse Gemini quand elle contient des citations de grounding `[1]`. Elle est **déjà déployée en prod** (redéploy Cloud Function manuel fait).
+   - ✅ Si ça marche : tout OK.
+   - ❌ Si "Erreur IA : internal" à nouveau : regarder les nouveaux logs détaillés
+     ```bash
+     firebase functions:log --only geminiSearch | tail -40
+     ```
+     Les logs donnent maintenant la tête + queue du JSON qui plante, ce qui permet d'ajuster l'extracteur.
+
+2. **Indexation Google** : checker Search Console → "Pages" pour voir le nombre d'URLs indexées. Normal de voir 0-5 aujourd'hui, ça monte sur plusieurs semaines.
+
+**Site en prod fonctionnel pour les pages SEO.** Seul risque résiduel : la search SPA peut encore foirer sur certaines queries spécifiques (format Gemini imprévisible) — à surveiller.
+
+**Prochains chantiers envisageables, par ordre de ROI :**
 
 1. **Indexation Google** (passif, 1-4 semaines) : Search Console propriété vérifiée, sitemap soumis. Patienter. Partager le lien sur forums/réseaux pour accélérer le crawl initial.
 2. **AdSense** : demander validation compte → récupérer client ID → ajouter en secret GitHub `PUBLIC_ADSENSE_CLIENT`. Emplacements déjà câblés côté code, ils apparaîtront au prochain build.
