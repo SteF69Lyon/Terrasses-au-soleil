@@ -14,6 +14,7 @@ const facingDeg = est.sun?.facingDeg ?? 180;
 <article
   class="card"
   itemscope
+  id={`t-${est.osmId.replace('/', '-')}`}
   data-terrace
   data-lat={est.lat}
   data-lng={est.lng}
@@ -49,5 +50,8 @@ const facingDeg = est.sun?.facingDeg ?? 180;
   <p>
     <a href={mapsUrl} target="_blank" rel="noopener">Voir sur Google Maps</a>
     {est.website && <Fragment> · <a href={est.website} target="_blank" rel="noopener">Site web</a></Fragment>}
+    <button type="button" class="share-btn" data-share-btn aria-label={`Partager ${est.name}`}>
+      ↗ Partager
+    </button>
   </p>
 </article>
