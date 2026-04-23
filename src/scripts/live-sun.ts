@@ -1,4 +1,5 @@
 import SunCalc from 'suncalc';
+import { isOpenNow } from '@/lib/openingHours';
 
 interface TerraceData {
   element: HTMLElement;
@@ -6,6 +7,7 @@ interface TerraceData {
   lng: number;
   facing: number;
   name: string;
+  openingHours: string | null;
 }
 
 function normalizeAngle(deg: number): number {
@@ -110,18 +112,33 @@ function renderHourlyChart(container: HTMLElement, data: TerraceData, day: Date,
 function updateTerrace(data: TerraceData, now: Date, cloudCover: number) {
   const { sunPercent, altitudeDeg } = computeSunPercent(data.lat, data.lng, now, data.facing, cloudCover);
   const liveEl = data.element.querySelector('[data-live-sun]') as HTMLElement | null;
-  if (!liveEl) return;
-  if (altitudeDeg <= 0) {
-    liveEl.textContent = 'Soleil couché';
-    liveEl.classList.add('live-sun--night');
-    return;
+  if (liveEl) {
+    if (altitudeDeg <= 0) {
+      liveEl.textContent = 'Soleil couché';
+      liveEl.classList.add('live-sun--night');
+    } else {
+      liveEl.textContent = `Maintenant : ☀️ ${sunPercent}%`;
+      liveEl.classList.remove('live-sun--night');
+      liveEl.dataset.pct = String(sunPercent);
+      if (sunPercent >= 65) liveEl.classList.add('live-sun--high');
+      else if (sunPercent >= 25) liveEl.classList.add('live-sun--mid');
+      else liveEl.classList.add('live-sun--low');
+    }
   }
-  liveEl.textContent = `Maintenant : ☀️ ${sunPercent}%`;
-  liveEl.classList.remove('live-sun--night');
-  liveEl.dataset.pct = String(sunPercent);
-  if (sunPercent >= 65) liveEl.classList.add('live-sun--high');
-  else if (sunPercent >= 25) liveEl.classList.add('live-sun--mid');
-  else liveEl.classList.add('live-sun--low');
+
+  // Open / closed status from opening_hours tag
+  const openEl = data.element.querySelector('[data-open-status]') as HTMLElement | null;
+  if (openEl) {
+    const openNow = isOpenNow(data.openingHours, now);
+    if (openNow === true) {
+      openEl.textContent = '✓ Ouvert';
+      openEl.classList.add('open-status--open');
+    } else if (openNow === false) {
+      openEl.textContent = '✗ Fermé';
+      openEl.classList.add('open-status--closed');
+    }
+    // null → leave empty (hidden by :empty CSS rule)
+  }
 }
 
 function updateBanner(
@@ -162,6 +179,7 @@ export async function initLiveSun() {
       lng: Number(el.dataset.lng),
       facing: Number(el.dataset.facing ?? 180),
       name: el.dataset.name ?? '',
+      openingHours: el.dataset.openingHours || null,
     }))
     .filter((t) => Number.isFinite(t.lat) && Number.isFinite(t.lng));
 

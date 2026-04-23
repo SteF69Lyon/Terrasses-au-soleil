@@ -60,10 +60,11 @@ h2 { font-size: 1.35rem; margin: 1.5rem 0 0.5rem; }
 .live-banner-main { font-size: 1rem; }
 .live-banner-stats { font-size: 0.95rem; margin-top: 0.25rem; opacity: 0.9; }
 
+.card-flags { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem; }
+
 .live-sun {
   font-size: 0.85rem;
   font-weight: 600;
-  margin-top: 0.4rem;
   padding: 0.2rem 0.5rem;
   border-radius: var(--radius);
   display: inline-block;
@@ -71,6 +72,17 @@ h2 { font-size: 1.35rem; margin: 1.5rem 0 0.5rem; }
   color: #7a4a00;
 }
 .live-sun:empty { display: none; }
+
+.open-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius);
+  display: inline-block;
+}
+.open-status:empty { display: none; }
+.open-status--open { background: rgba(34, 197, 94, 0.18); color: #14532d; }
+.open-status--closed { background: rgba(239, 68, 68, 0.18); color: #7f1d1d; }
 .live-sun--high { background: rgba(245, 166, 35, 0.95); color: #fff; }
 .live-sun--mid { background: rgba(245, 166, 35, 0.4); color: #5a3800; }
 .live-sun--low { background: rgba(100, 116, 139, 0.2); color: #4a4a4a; }
