@@ -4,6 +4,7 @@ import Breadcrumb from '@/components/Breadcrumb.astro';
 import TerraceCard from '@/components/TerraceCard.astro';
 import AdSlot from '@/components/AdSlot.astro';
 import FaqList from '@/components/FaqList.astro';
+import LiveSunBanner from '@/components/LiveSunBanner.astro';
 import type { City } from '@/data/cities';
 import { buildPageData } from '@/lib/buildData';
 import { absoluteUrl, variationUrl, villeUrl, SITE, type VariationType } from '@/lib/urls';
@@ -42,6 +43,7 @@ const jsonld = [
 <Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
   <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
   <h1>{h1}</h1>
+  <LiveSunBanner />
   <p>{data.intro}</p>
 
   <AdSlot slotId="1111111111" format="horizontal" />
