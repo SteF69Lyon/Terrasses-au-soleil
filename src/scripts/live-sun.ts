@@ -58,6 +58,55 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
 }
 
+async function fetchHourlyCloudCover(lat: number, lng: number, date: Date): Promise<number[] | null> {
+  const isoDate = date.toISOString().split('T')[0];
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
+    `&hourly=cloudcover&start_date=${isoDate}&end_date=${isoDate}&timezone=UTC`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { hourly?: { cloudcover: number[] } };
+    const covers = data.hourly?.cloudcover;
+    if (!covers || covers.length !== 24) return null;
+    return covers;
+  } catch {
+    return null;
+  }
+}
+
+const HOURLY_START = 9;
+const HOURLY_END = 21;
+
+function renderHourlyChart(container: HTMLElement, data: TerraceData, day: Date, hourlyCloud: number[]) {
+  const hours: { hour: number; sun: number; isNow: boolean }[] = [];
+  const nowHour = day.getHours();
+
+  for (let h = HOURLY_START; h <= HOURLY_END; h++) {
+    const localDate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, 0, 0);
+    const utcHour = localDate.getUTCHours();
+    const cloud = (hourlyCloud[utcHour] ?? 0) / 100;
+    const { sunPercent } = computeSunPercent(data.lat, data.lng, localDate, data.facing, cloud);
+    hours.push({ hour: h, sun: sunPercent, isNow: h === nowHour });
+  }
+
+  const maxSun = Math.max(1, ...hours.map((h) => h.sun));
+  const bars = hours
+    .map((h) => {
+      const heightPct = Math.round((h.sun / maxSun) * 100);
+      const colorClass = h.sun >= 65 ? 'bar--high' : h.sun >= 25 ? 'bar--mid' : 'bar--low';
+      const nowClass = h.isNow ? ' hourly-bar--now' : '';
+      return `<div class="hourly-bar${nowClass}" title="${h.hour}h : ${h.sun}% soleil">
+        <div class="hourly-fill ${colorClass}" style="height:${heightPct}%"></div>
+        <div class="hourly-label">${h.hour}h</div>
+      </div>`;
+    })
+    .join('');
+
+  container.innerHTML = `<div class="hourly-title">Prévision du soleil aujourd'hui (heure locale)</div><div class="hourly-bars">${bars}</div>`;
+  container.hidden = false;
+}
+
 function updateTerrace(data: TerraceData, now: Date, cloudCover: number) {
   const { sunPercent, altitudeDeg } = computeSunPercent(data.lat, data.lng, now, data.facing, cloudCover);
   const liveEl = data.element.querySelector('[data-live-sun]') as HTMLElement | null;
@@ -122,10 +171,15 @@ export async function initLiveSun() {
   const centerLng = terraces.reduce((a, t) => a + t.lng, 0) / terraces.length;
   const now = new Date();
 
-  const cloudCover = (await fetchCloudCover(centerLat, centerLng, now)) ?? 0;
+  const hourly = await fetchHourlyCloudCover(centerLat, centerLng, now);
+  const cloudCover = hourly ? (hourly[now.getUTCHours()] ?? 0) / 100 : ((await fetchCloudCover(centerLat, centerLng, now)) ?? 0);
 
   for (const t of terraces) {
     updateTerrace(t, now, cloudCover);
+    if (hourly) {
+      const chartEl = t.element.querySelector('[data-hourly-chart]') as HTMLElement | null;
+      if (chartEl) renderHourlyChart(chartEl, t, now, hourly);
+    }
   }
 
   if (banner) updateBanner(banner, now, cloudCover, terraces);
