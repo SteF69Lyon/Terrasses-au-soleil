@@ -56,8 +56,9 @@ N'invente AUCUNE donnée d'ensoleillement : ce sera calculé en dehors.
 Réponds EXCLUSIVEMENT sous forme de tableau JSON valide, sans texte avant ni après :
 [{"name":"...","address":"...","type":"bar","rating":4.5,"lat":48.8,"lng":2.3}]`;
 
+    let response;
     try {
-      const response = await ai.models.generateContent({
+      response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
@@ -65,55 +66,80 @@ Réponds EXCLUSIVEMENT sous forme de tableau JSON valide, sans texte avant ni ap
           maxOutputTokens: 8192,
         },
       });
+    } catch (e: any) {
+      console.error('[geminiSearch] Gemini API error:', e?.message ?? e);
+      throw new HttpsError('unavailable', `Service Gemini indisponible : ${e?.message ?? 'inconnu'}`);
+    }
 
-      const text = response.text || '[]';
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      let raw: RawEstablishment[] = [];
-      if (jsonMatch) {
-        try {
-          raw = JSON.parse(jsonMatch[0]);
-        } catch {
-          throw new HttpsError('internal', 'La réponse Gemini ne contient pas de JSON valide.');
-        }
+    const text = response.text || '[]';
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    let raw: RawEstablishment[] = [];
+    if (jsonMatch) {
+      try {
+        raw = JSON.parse(jsonMatch[0]);
+      } catch (e: any) {
+        console.error('[geminiSearch] JSON parse failed. Response text (first 500 chars):', text.slice(0, 500));
+        throw new HttpsError('internal', 'La réponse Gemini n\'est pas un JSON valide.');
       }
+    } else {
+      console.warn('[geminiSearch] No JSON array found in response. Text (first 300 chars):', text.slice(0, 300));
+    }
 
-      const groundingChunks = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || []) as any[];
-      const sources = groundingChunks
-        .map((chunk: any) => (chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null))
-        .filter(Boolean);
+    // Keep only entries with valid numeric coordinates — skip Gemini hallucinations.
+    const valid = raw.filter(
+      (r) =>
+        r &&
+        typeof r.name === 'string' && r.name.length > 0 &&
+        typeof r.lat === 'number' && Number.isFinite(r.lat) &&
+        typeof r.lng === 'number' && Number.isFinite(r.lng),
+    );
 
-      const zoneLat = lat ?? averageLat(raw);
-      const zoneLng = lng ?? averageLng(raw);
-      const cloudCover = zoneLat != null && zoneLng != null
-        ? await fetchCloudCoverFactor({ lat: zoneLat, lng: zoneLng, date: targetDate })
-        : null;
+    if (valid.length === 0) {
+      console.warn(`[geminiSearch] No valid results for location="${location}" type="${type}". Raw count: ${raw.length}.`);
+      return { results: [], sources: [] };
+    }
 
-      const results = raw.map((r) => {
+    const groundingChunks = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || []) as any[];
+    const sources = groundingChunks
+      .map((chunk: any) => (chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null))
+      .filter(Boolean);
+
+    const zoneLat = lat ?? averageLat(valid);
+    const zoneLng = lng ?? averageLng(valid);
+    const cloudCover = zoneLat != null && zoneLng != null
+      ? await fetchCloudCoverFactor({ lat: zoneLat, lng: zoneLng, date: targetDate }).catch(() => null)
+      : null;
+
+    const results = valid.map((r) => {
+      let sunExposure = 0;
+      let description = '';
+      try {
         const score = computeSunScore({
           lat: r.lat,
           lng: r.lng,
           date: targetDate,
           cloudCover: cloudCover ?? 0,
         });
-        return {
-          name: r.name,
-          address: r.address,
-          type: r.type,
-          rating: r.rating ?? 4.0,
-          lat: r.lat,
-          lng: r.lng,
-          sunExposure: score.sunPercent,
-          description: score.explanation,
-        };
-      });
+        sunExposure = score.sunPercent;
+        description = score.explanation;
+      } catch (e: any) {
+        console.warn(`[geminiSearch] Sun score failed for ${r.name}:`, e?.message ?? e);
+      }
+      return {
+        name: r.name,
+        address: r.address,
+        type: r.type,
+        rating: typeof r.rating === 'number' ? r.rating : 4.0,
+        lat: r.lat,
+        lng: r.lng,
+        sunExposure,
+        description,
+      };
+    });
 
-      results.sort((a, b) => b.sunExposure - a.sunExposure);
+    results.sort((a, b) => b.sunExposure - a.sunExposure);
 
-      return { results, sources };
-    } catch (e: any) {
-      if (e instanceof HttpsError) throw e;
-      throw new HttpsError('unavailable', 'Service Gemini temporairement indisponible.');
-    }
+    return { results, sources };
   },
 );
 
