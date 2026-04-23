@@ -21,9 +21,21 @@ async function getOrFetchBBox(city: City, quartier: Quartier | null): Promise<BB
   const cached = await getCached<BBox>(db, 'cityGeo', id, TTL.CITY_GEO);
   if (cached) return cached;
   const query = quartier ? quartier.searchHint : city.name;
-  const bbox = await geocodeThrottled(query);
-  await setCached(db, 'cityGeo', id, bbox);
-  return bbox;
+  try {
+    const bbox = await geocodeThrottled(query);
+    await setCached(db, 'cityGeo', id, bbox);
+    return bbox;
+  } catch (e: any) {
+    if (!quartier) throw e;
+    // Fallback: use the parent city's bbox. Build continues even if a quartier
+    // hint isn't geocodable (e.g. too generic: "Bord du lac, Annecy").
+    console.warn(`[buildData] Nominatim failed for "${query}", falling back to ${city.name} bbox. (${e?.message ?? e})`);
+    const cityBbox = await getCached<BBox>(db, 'cityGeo', city.slug, TTL.CITY_GEO);
+    if (cityBbox) return cityBbox;
+    const fallback = await geocodeThrottled(city.name);
+    await setCached(db, 'cityGeo', city.slug, fallback);
+    return fallback;
+  }
 }
 
 const MAX_CACHED_ESTABLISHMENTS = 100;

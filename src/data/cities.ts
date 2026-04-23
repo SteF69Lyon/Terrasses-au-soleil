@@ -152,8 +152,8 @@ export const CITIES: City[] = [
     name: 'Annecy',
     region: 'Auvergne-Rhône-Alpes',
     quartiers: [
-      { slug: 'vieille-ville', name: 'Vieille Ville', searchHint: 'Vieille Ville, Annecy' },
-      { slug: 'bord-du-lac', name: 'Bord du lac', searchHint: 'Bord du lac, Annecy' },
+      { slug: 'vieille-ville', name: 'Vieille Ville', searchHint: 'Vieille ville, Annecy' },
+      { slug: 'paquier', name: 'Pâquier', searchHint: 'Le Pâquier, Annecy' },
     ],
   },
   {
