@@ -7,8 +7,9 @@
     "dev": "astro dev",
     "build:astro": "astro build",
     "build:app": "cd app && npm ci && npm run build",
+    "build:og": "node scripts/generate-og.mjs",
     "build:merge": "node scripts/merge-dist.mjs",
-    "build": "npm install && npm run build:app && npm run build:astro && npm run build:merge",
+    "build": "npm install && npm run build:og && npm run build:app && npm run build:astro && npm run build:merge",
     "preview": "astro preview",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/leaflet": "^1.9.12",
     "@types/node": "^22.14.0",
     "@types/react": "^19.0.0",
