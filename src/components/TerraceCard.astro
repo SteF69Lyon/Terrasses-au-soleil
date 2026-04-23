@@ -35,6 +35,7 @@ const facingDeg = est.sun?.facingDeg ?? 180;
     )}
   </div>
   <div class="live-sun" data-live-sun aria-live="polite"></div>
+  <div class="hourly-chart" data-hourly-chart hidden></div>
   {est.sun?.analysis && <p>{est.sun.analysis}</p>}
   <p>
     <a href={mapsUrl} target="_blank" rel="noopener">Voir sur Google Maps</a>
