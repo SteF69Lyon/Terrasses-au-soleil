@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Terrace, SunLevel } from '../types';
 import { gemini } from '../services/geminiService';
 import SunHourlyChart from './SunHourlyChart';
@@ -11,6 +11,32 @@ interface TerraceCardProps {
 }
 
 const TerraceCard: React.FC<TerraceCardProps> = ({ terrace, isFavorite, onToggleFavorite }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${terrace.coordinates.lat},${terrace.coordinates.lng}`;
+    const shareData = {
+      title: terrace.name,
+      text: `${terrace.name} — terrasse ensoleillée à ${terrace.sunExposure}% · ${terrace.address}`,
+      url: mapsUrl,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        /* user cancelled */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked */
+    }
+  };
+
   const getSunColor = (level: SunLevel) => {
     switch (level) {
       case SunLevel.FULL: return 'text-yellow-500';
@@ -78,12 +104,19 @@ const TerraceCard: React.FC<TerraceCardProps> = ({ terrace, isFavorite, onToggle
           >
             <i className="fas fa-route"></i> Itinéraire
           </button>
-          <button 
+          <button
             onClick={handleSpeech}
             className="w-12 h-10 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl flex items-center justify-center transition-colors"
             title="Écouter la description"
           >
             <i className="fas fa-volume-up"></i>
+          </button>
+          <button
+            onClick={handleShare}
+            className="w-12 h-10 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl flex items-center justify-center transition-colors relative"
+            title="Partager cette terrasse"
+          >
+            <i className={`fas ${copied ? 'fa-check' : 'fa-share-alt'}`}></i>
           </button>
         </div>
       </div>

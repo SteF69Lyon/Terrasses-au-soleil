@@ -61,10 +61,15 @@ const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
     </main>
     <script>
       import { initLiveSun } from '@/scripts/live-sun';
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => void initLiveSun());
-      } else {
+      import { initShareButtons } from '@/scripts/share';
+      function boot() {
         void initLiveSun();
+        initShareButtons();
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+      } else {
+        boot();
       }
     </script>
     <footer class="container" style="color: var(--color-muted); font-size: 0.85rem;">
