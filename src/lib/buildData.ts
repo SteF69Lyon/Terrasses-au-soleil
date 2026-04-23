@@ -89,8 +89,8 @@ async function getOrFetchEstablishments(pageId: string, bbox: BBox): Promise<Est
 
 async function getOrComputeSunScore(est: Establishment, buildings: Building[]): Promise<SunScore> {
   const db = getDb();
-  // Prefix "d3_" (deterministic v3 — tuned shadow factor). Invalidates older cache.
-  const cacheId = encodeURIComponent(`d3_${est.osmId}`);
+  // Prefix "d4_" (adds facingDeg to SunScore for live-sun client). Invalidates older cache.
+  const cacheId = encodeURIComponent(`d4_${est.osmId}`);
   const cached = await getCached<SunScore>(db, 'sunScores', cacheId, TTL.SUN_SCORE);
   if (cached) return cached;
 

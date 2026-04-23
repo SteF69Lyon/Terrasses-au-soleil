@@ -46,3 +46,30 @@ h2 { font-size: 1.35rem; margin: 1.5rem 0 0.5rem; }
 .cta:hover { text-decoration: none; opacity: 0.9; }
 
 .mini-map { height: 320px; margin: 1.5rem 0; border-radius: var(--radius); overflow: hidden; }
+
+.live-banner {
+  background: linear-gradient(90deg, var(--color-sun), #ffcf73);
+  color: #222;
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--radius);
+  margin: 1rem 0 1.5rem;
+  box-shadow: 0 2px 8px rgba(245, 166, 35, 0.25);
+}
+.live-banner-main { font-size: 1rem; }
+.live-banner-stats { font-size: 0.95rem; margin-top: 0.25rem; opacity: 0.9; }
+
+.live-sun {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius);
+  display: inline-block;
+  background: rgba(245, 166, 35, 0.15);
+  color: #7a4a00;
+}
+.live-sun:empty { display: none; }
+.live-sun--high { background: rgba(245, 166, 35, 0.95); color: #fff; }
+.live-sun--mid { background: rgba(245, 166, 35, 0.4); color: #5a3800; }
+.live-sun--low { background: rgba(100, 116, 139, 0.2); color: #4a4a4a; }
+.live-sun--night { background: rgba(30, 41, 59, 0.1); color: var(--color-muted); }

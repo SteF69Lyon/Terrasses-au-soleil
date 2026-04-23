@@ -50,6 +50,14 @@ const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
     <main class="container">
       <slot />
     </main>
+    <script>
+      import { initLiveSun } from '@/scripts/live-sun';
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => void initLiveSun());
+      } else {
+        void initLiveSun();
+      }
+    </script>
     <footer class="container" style="color: var(--color-muted); font-size: 0.85rem;">
       <p>Terrasses-au-soleil.fr — données OpenStreetMap © contributeurs. Analyses solaires assistées par IA.</p>
     </footer>

@@ -6,6 +6,7 @@ import AdSlot from '@/components/AdSlot.astro';
 import RelatedAreas from '@/components/RelatedAreas.astro';
 import FaqList from '@/components/FaqList.astro';
 import MiniMap from '@/components/MiniMap.tsx';
+import LiveSunBanner from '@/components/LiveSunBanner.astro';
 import { CITIES, findCity, findQuartier } from '@/data/cities';
 import { buildPageData } from '@/lib/buildData';
 import { hasBuildCredentials } from '@/lib/firebase';
@@ -65,6 +66,7 @@ const markers = data.establishments.map((e) => ({ name: e.name, lat: e.lat, lng:
 <Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
   <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
   <h1>Terrasses ensoleillées à {q.name}, {city.name}</h1>
+  <LiveSunBanner />
   <p>{data.intro}</p>
 
   <AdSlot slotId="1111111111" format="horizontal" />

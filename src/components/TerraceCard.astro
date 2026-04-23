@@ -8,8 +8,18 @@ export interface Props {
 const { est, position } = Astro.props;
 const typeLabel = { bar: 'Bar', cafe: 'Café', restaurant: 'Restaurant' }[est.type];
 const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${est.lat},${est.lng}`;
+// facing is exposed via data attribute for the client-side live-sun script.
+const facingDeg = est.sun?.facingDeg ?? 180;
 ---
-<article class="card" itemscope>
+<article
+  class="card"
+  itemscope
+  data-terrace
+  data-lat={est.lat}
+  data-lng={est.lng}
+  data-facing={facingDeg}
+  data-name={est.name}
+>
   <div class="card-head">
     <div>
       <h2 itemprop="name"><span style="color: var(--color-muted); font-weight: normal;">{position}.</span> {est.name}</h2>
@@ -24,6 +34,7 @@ const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${est.lat},${es
       </span>
     )}
   </div>
+  <div class="live-sun" data-live-sun aria-live="polite"></div>
   {est.sun?.analysis && <p>{est.sun.analysis}</p>}
   <p>
     <a href={mapsUrl} target="_blank" rel="noopener">Voir sur Google Maps</a>

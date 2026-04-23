@@ -4,6 +4,8 @@ export interface SunScore {
   osmId: string;
   sunPercent: number;
   orientation: string;
+  /** Facing direction in degrees (0=N, 90=E, 180=S, 270=W). Used by live client. */
+  facingDeg?: number;
   analysis: string;
 }
 
@@ -135,6 +137,7 @@ export function scoreEstablishment(
     osmId: est.osmId,
     sunPercent: finalPercent,
     orientation: cardinalShort(result.facingDeg),
+    facingDeg: result.facingDeg,
     analysis,
   };
 }
