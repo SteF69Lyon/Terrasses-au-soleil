@@ -77,13 +77,15 @@ async function getOrFetchBuildings(pageId: string, bbox: BBox): Promise<Building
 
 async function getOrFetchEstablishments(pageId: string, bbox: BBox): Promise<Establishment[]> {
   const db = getDb();
-  const cached = await getCached<Establishment[]>(db, 'osmCache', pageId, TTL.OSM);
+  // v2 adds imageUrl on each establishment.
+  const cacheId = `v2_${pageId}`;
+  const cached = await getCached<Establishment[]>(db, 'osmCache', cacheId, TTL.OSM);
   if (cached) return cached;
   const all = await fetchEstablishments(bbox);
   const withSeating = all.filter((e) => e.outdoorSeating);
   const without = all.filter((e) => !e.outdoorSeating);
   const trimmed = [...withSeating, ...without].slice(0, MAX_CACHED_ESTABLISHMENTS);
-  await setCached(db, 'osmCache', pageId, trimmed);
+  await setCached(db, 'osmCache', cacheId, trimmed);
   return trimmed;
 }
 
