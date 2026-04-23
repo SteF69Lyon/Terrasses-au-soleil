@@ -50,19 +50,20 @@ Ouvrir Claude Code dans le repo et dire : *"Reprends le travail, lis HANDOFF.md"
 
 ## 🌅 Reprise — à lire en premier
 
-**Dernière session** : 2026-04-23 matin. Chantier "star de l'été" complet (PRs #26-29), puis 2 fixes rapides sur la SPA search (PRs #31-32).
+**Dernière session** : 2026-04-23. Chantier "star de l'été" complet (PRs #26-29), fix SPA search (PRs #31-32), puis debug sitemap GSC (sitemap supprimé + resoumis dans Search Console à 11h environ).
 
-**À valider dès la reprise (1 min) :**
+**À valider dès la reprise (2 min) :**
 
-1. **Recherche SPA** : aller sur https://terrasse-au-soleil.fr/app/ et taper une recherche spécifique du type `café juliette Lyon` (c'est le cas qui foirait). La dernière PR #32 corrige un extracteur JSON défaillant sur la réponse Gemini quand elle contient des citations de grounding `[1]`. Elle est **déjà déployée en prod** (redéploy Cloud Function manuel fait).
+1. **Recherche SPA** : https://terrasse-au-soleil.fr/app/ → chercher `café juliette Lyon` (cas qui foirait en "Erreur IA : internal"). PR #32 a ajouté un extracteur JSON bracket-balanced (Cloud Function redéployée manuellement).
    - ✅ Si ça marche : tout OK.
-   - ❌ Si "Erreur IA : internal" à nouveau : regarder les nouveaux logs détaillés
-     ```bash
-     firebase functions:log --only geminiSearch | tail -40
-     ```
-     Les logs donnent maintenant la tête + queue du JSON qui plante, ce qui permet d'ajuster l'extracteur.
+   - ❌ Si re-crash : `firebase functions:log --only geminiSearch | tail -40` → les logs donnent maintenant la tête + queue du JSON qui plante.
 
-2. **Indexation Google** : checker Search Console → "Pages" pour voir le nombre d'URLs indexées. Normal de voir 0-5 aujourd'hui, ça monte sur plusieurs semaines.
+2. **Sitemap Search Console** : https://search.google.com/search-console → Sitemaps
+   - Le sitemap a été **supprimé puis resoumis** en fin de session précédente pour forcer Google à refetcher (le cache précédent ne voyait que 1 URL à cause d'un ancien état transitoire).
+   - **État attendu** après 12-24h : "Pages découvertes" doit être passé de 1 à **173**.
+   - Si toujours à 1 après 48h : on soupçonne un bug plus profond (peu probable, le XML côté serveur est OK à 173 URLs).
+
+3. **Indexation Google — onglet "Pages"** : normal de voir 0-5 URLs indexées les premiers jours, monte sur plusieurs semaines pour atteindre ~70-90% du sitemap. Indexation manuelle demandée pour les 5 plus grosses villes — quota GSC ~10/jour.
 
 **Site en prod fonctionnel pour les pages SEO.** Seul risque résiduel : la search SPA peut encore foirer sur certaines queries spécifiques (format Gemini imprévisible) — à surveiller.
 
