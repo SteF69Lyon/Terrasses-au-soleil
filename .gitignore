@@ -42,3 +42,6 @@ lerna-debug.log*
 # Firebase service account private keys (NEVER commit)
 *-firebase-adminsdk-*.json
 *serviceAccount*.json
+
+# Generated OG images (regenerated at build via scripts/generate-og.mjs)
+public/og/*.png

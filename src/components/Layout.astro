@@ -7,8 +7,17 @@ export interface Props {
   ogImage?: string;
   jsonld?: object[];
 }
-const { title, description, canonical, ogImage = '/og-default.jpg', jsonld = [] } = Astro.props;
-const siteOgImage = new URL(ogImage, Astro.site).toString();
+const { title, description, canonical, ogImage, jsonld = [] } = Astro.props;
+// Resolve OG image: explicit ogImage prop > derive from URL path > default.
+function resolveOgImage(path: string | undefined, explicit: string | undefined): string {
+  if (explicit) return explicit;
+  if (!path) return '/og/default.png';
+  const match = path.match(/\/terrasses\/([^/]+)\/|\/(?:bar-ensoleille|cafe-terrasse|restaurant-terrasse|ou-boire-un-verre-au-soleil)-([^/]+)\/?$/);
+  const city = match?.[1] ?? match?.[2];
+  return city ? `/og/${city}.png` : '/og/default.png';
+}
+const resolvedOg = resolveOgImage(Astro.url.pathname, ogImage);
+const siteOgImage = new URL(resolvedOg, Astro.site).toString();
 const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
 ---
 <html lang="fr">
