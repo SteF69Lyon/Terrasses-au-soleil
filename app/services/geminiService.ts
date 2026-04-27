@@ -2,6 +2,8 @@ import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { GoogleGenAI, Modality, Type } from '@google/genai';
 import { EstablishmentType, SunLevel, Terrace, UserPreferences } from '../types';
+import { searchTerraces } from './searchService';
+import { dbService } from './dbService';
 
 const REGION = 'europe-west1';
 
@@ -33,9 +35,9 @@ export class GeminiService {
     lat?: number,
     lng?: number
   ): Promise<Terrace[]> {
-    const searchFn = httpsCallable(this.fns(), 'geminiSearch');
-    const result = await searchFn({ location, type, date, time, lat, lng });
-    const { results, sources } = result.data as { results: any[]; sources: any[] };
+    const session = (await dbService.getAuth()?.getSession())?.data.session;
+    const jwt = session?.access_token;
+    const { results, sources } = await searchTerraces({ location, type, date, time, lat, lng }, jwt);
 
     return results.map((r: any, i: number) => ({
       id: `${i}-${Date.now()}`,
