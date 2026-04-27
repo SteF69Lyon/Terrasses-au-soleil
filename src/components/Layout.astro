@@ -1,5 +1,7 @@
 ---
 import '@/styles/global.css';
+import { CITIES } from '@/data/cities';
+import { villeUrl, variationUrl } from '@/lib/urls';
 export interface Props {
   title: string;
   description: string;
@@ -72,8 +74,35 @@ const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
         boot();
       }
     </script>
-    <footer class="container" style="color: var(--color-muted); font-size: 0.85rem;">
-      <p>Terrasses-au-soleil.fr — données OpenStreetMap © contributeurs. Analyses solaires assistées par IA.</p>
+    <footer class="site-footer">
+      <div class="container">
+        <nav class="footer-links" aria-label="Liens villes">
+          <h3>Toutes les villes</h3>
+          <ul>
+            {CITIES.map((c) => (
+              <li><a href={villeUrl(c.slug)}>{c.name}</a></li>
+            ))}
+          </ul>
+        </nav>
+        <nav class="footer-links" aria-label="Liens variations">
+          <h3>Recherches populaires</h3>
+          <ul>
+            {CITIES.slice(0, 6).flatMap((c) => [
+              <li><a href={variationUrl('bar', c.slug)}>Bars ensoleillés à {c.name}</a></li>,
+              <li><a href={variationUrl('cafe', c.slug)}>Cafés terrasse à {c.name}</a></li>,
+              <li><a href={variationUrl('restaurant', c.slug)}>Restaurants terrasse à {c.name}</a></li>,
+            ])}
+          </ul>
+        </nav>
+        <div class="footer-meta">
+          <p>
+            <a href="/">Accueil</a> · <a href="/app/">Recherche live</a> · <a href="/sitemap-index.xml">Sitemap</a>
+          </p>
+          <p style="color: var(--color-muted); font-size: 0.85rem;">
+            Terrasses-au-soleil.fr — données <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © contributeurs. Analyses solaires assistées par IA.
+          </p>
+        </div>
+      </div>
     </footer>
   </body>
 </html>

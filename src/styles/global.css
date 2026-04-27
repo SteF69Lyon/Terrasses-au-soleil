@@ -135,3 +135,44 @@ h2 { font-size: 1.35rem; margin: 1.5rem 0 0.5rem; }
 .hourly-fill.bar--low { background: #94a3b8; }
 .hourly-label { font-size: 0.65rem; color: var(--color-muted); margin-top: 2px; }
 .hourly-bar--now .hourly-label { color: var(--color-sun); font-weight: bold; }
+
+.site-footer {
+  background: #fff;
+  border-top: 1px solid var(--color-border);
+  margin-top: 3rem;
+  padding: 2rem 0 1.5rem;
+}
+.site-footer h3 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+  margin: 0 0 0.6rem;
+}
+.footer-links { margin-bottom: 1.5rem; }
+.footer-links ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+}
+.footer-links li { font-size: 0.9rem; }
+.footer-links a { color: var(--color-text); }
+.footer-links a:hover { color: var(--color-sun); }
+.footer-meta { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px dashed var(--color-border); }
+.footer-meta p { margin: 0.4rem 0; font-size: 0.9rem; }
+
+.see-also { margin: 2rem 0; }
+.see-also-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.see-also-list li a {
+  display: inline-block;
+  padding: 0.4rem 0.8rem;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+.see-also-list li a:hover { background: var(--color-sun); color: #fff; text-decoration: none; }

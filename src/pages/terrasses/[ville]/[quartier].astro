@@ -57,6 +57,20 @@ const relatedQuartiers = city.quartiers
   .slice(0, 5)
   .map((x) => ({ ville: city.name, quartier: x.name, villeSlug: city.slug, quartierSlug: x.slug }));
 
+// Pick 6 quartiers from OTHER cities for cross-city internal linking.
+// Deterministic seed via slug so the build output is stable.
+const seed = q.slug.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+const otherQuartiers = CITIES
+  .filter((c) => c.slug !== city.slug && c.quartiers.length > 0)
+  .map((c) => ({ city: c, quartier: c.quartiers[seed % c.quartiers.length] }))
+  .slice(0, 6)
+  .map(({ city: c, quartier: q2 }) => ({
+    ville: c.name,
+    quartier: q2.name,
+    villeSlug: c.slug,
+    quartierSlug: q2.slug,
+  }));
+
 const center: [number, number] = [
   (data.bbox.north + data.bbox.south) / 2,
   (data.bbox.east + data.bbox.west) / 2,
@@ -92,6 +106,8 @@ const markers = data.establishments.map((e) => ({
   <MiniMap client:only="react" markers={markers} center={center} />
 
   <RelatedAreas items={relatedQuartiers} title={`Autres quartiers de ${city.name}`} />
+
+  <RelatedAreas items={otherQuartiers} title="Découvrir d'autres villes" />
 
   <a class="cta" href={`/app/?city=${encodeURIComponent(city.name)}&area=${encodeURIComponent(q.name)}`}>
     Affiner en temps réel →
