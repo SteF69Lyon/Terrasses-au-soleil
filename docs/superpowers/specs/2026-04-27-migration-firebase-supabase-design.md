@@ -14,7 +14,7 @@
 ## Décisions arrêtées (validées)
 
 1. **Instance Supabase dédiée** au projet (pas mutualisée avec Poolscore/Iremia), via projet Docker Compose isolé sur le VPS Hostinger existant. Migration vers VPS dédié possible plus tard en ~2 h (`pg_dumpall` + `tar` + DNS).
-2. **API exposée sur `api.terrasse-au-soleil.fr`** via Caddy (existant sur le VPS).
+2. **API exposée sur `api.terrasse-au-soleil.fr`** via Traefik (déjà déployé sur le VPS pour n8n / Iremia / Poolscore — découverte automatique via labels Docker).
 3. **Remplacement de `geminiSearch` par OSM Overpass + AI Router multi-provider** (Anthropic Claude → OpenAI → Google Gemini, avec fallback automatique). OSM fournit les POI réels, le LLM analyse l'ensoleillement.
 4. **TTS coupé** (`geminiTts` non porté — gadget non utilisé). Restaurable plus tard si besoin.
 5. **Assistant vocal Gemini Live conservé** (`geminiLiveToken` porté tel quel — Gemini-only par nature).
@@ -48,8 +48,8 @@
 │ │  - Studio (admin UI)                        │       │
 │ │  - Kong (API gateway)                       │       │
 │ └────────────────────────────────────────────┘       │
-│ + Caddy (existant) → ajoute api.terrasse-au-soleil.fr │
-│ + Backups pg_dump → Backblaze B2 (existant, +1 job)   │
+│ + Traefik (existant) → route api.terrasse-au-soleil.fr│
+│ + Backups pg_dump → GPG → rclone (existant, +1 job)   │
 │ + Uptime Kuma (existant, +2 monitors)                 │
 └──────────────────────────────────────────────────────┘
 ```
@@ -67,10 +67,9 @@ terrasses-supabase-stack/
 ├── .env.example
 ├── .gitignore                          # .env, volumes, secrets
 ├── docker/
-│   ├── docker-compose.yml              # stack Supabase complète
-│   ├── .env.example
-│   └── caddy/
-│       └── terrasses.caddy.snippet     # bloc à inclure dans le Caddyfile global du VPS
+│   └── supabase/
+│       ├── docker-compose.override.yml # surcharge le compose upstream (Traefik labels, ports custom)
+│       └── .env.example                # secrets + URLs spécifiques au projet
 ├── db/
 │   ├── migrations/
 │   │   ├── 001_initial_schema.sql      # profiles, ads, osm_cache + helpers + trigger
@@ -248,35 +247,40 @@ VITE_ADMIN_EMAIL=sflandrin@outlook.com
 
 ## Bootstrap initial du VPS (one-shot manuel)
 
+Pattern repris d'iremia-supabase-stack : on **ne fork pas** le `docker-compose.yml` upstream Supabase, on l'étend avec un `docker-compose.override.yml` qui ajoute les labels Traefik et les bindings de ports spécifiques à Terrasses.
+
 ```bash
+# Cloner upstream Supabase + notre overlay
 mkdir -p /opt/terrasses-supabase && cd /opt/terrasses-supabase
-git clone https://github.com/SteF69Lyon/terrasses-supabase-stack.git .
-cp docker/.env.example docker/.env
-# Édite docker/.env :
-#   POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY (générés)
+git clone --depth 1 https://github.com/supabase/supabase.git
+cd supabase/docker
+# Récupérer notre overlay et .env depuis le repo terrasses-supabase-stack
+curl -O https://raw.githubusercontent.com/SteF69Lyon/terrasses-supabase-stack/main/docker/supabase/docker-compose.override.yml
+curl -O https://raw.githubusercontent.com/SteF69Lyon/terrasses-supabase-stack/main/docker/supabase/.env.example
+cp .env.example .env
+# Éditer .env :
+#   POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY, etc. (via generate-supabase-secrets.sh)
 #   DASHBOARD_USERNAME / DASHBOARD_PASSWORD
 #   ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY
 #   SITE_URL=https://terrasse-au-soleil.fr
 #   API_EXTERNAL_URL=https://api.terrasse-au-soleil.fr
-docker compose -f docker/docker-compose.yml --project-name terrasses up -d
-# Migrations DDL appliquées via volume init (pattern iremia)
+docker compose --project-name terrasses up -d
 ```
+
+**Ports VPS** (non-conflictuels avec Iremia 5432/6543 et Poolscore 5433/6544) :
+- Postgres : `127.0.0.1:5434` (admin uniquement via tunnel SSH, jamais exposé publiquement)
+- Pooler : `127.0.0.1:6545`
+- Kong : exposé publiquement uniquement via Traefik, pas de bind direct sur l'IP publique
 
 DNS pré-requis : A record `api.terrasse-au-soleil.fr → <IP_VPS>` (Hostinger DNS, TTL 300).
 
-Caddy : ajout d'un bloc dans le Caddyfile global du VPS :
-
-```
-api.terrasse-au-soleil.fr {
-    reverse_proxy localhost:<KONG_PORT_TERRASSES>
-}
-```
+**Traefik** : zéro config supplémentaire côté VPS — Traefik est déjà en place et découvre automatiquement Kong via les labels Docker dans `docker-compose.override.yml` (Host rule + cert TLS Let's Encrypt automatique).
 
 Edge Functions : montées en volume Docker dans le service `functions`. Redéploiement = `docker compose --project-name terrasses restart functions`. Secrets AI injectés via les variables d'env du service.
 
 ## Backups & monitoring
 
-- **Backups** : `pg_dump` quotidien 03:00 UTC → Backblaze B2, rétention 30 jours. Réutilise le job cron existant (Iremia/Poolscore) en y ajoutant le projet `terrasses`. Restore documenté dans `docs/RUNBOOK_BACKUPS.md`.
+- **Backups** : `pg_dump → GPG encrypt → rclone upload` quotidien 03:00 UTC vers le remote backup (Scaleway Object Storage par défaut, configurable via env var `BACKUP_REMOTE` pour B2/S3/GCS). Rétention 30 jours. Pattern et script repris d'iremia (`scripts/ops/backup-postgres.sh`), adapté avec `DB_CONTAINER=terrasses-supabase-db` et `BACKUP_PATH=postgres/terrasses`. Restore documenté dans `docs/RUNBOOK_BACKUPS.md`.
 - **Monitoring** : 2 monitors Uptime Kuma (existant) :
   - `https://api.terrasse-au-soleil.fr/rest/v1/` (health PostgREST)
   - `https://terrasse-au-soleil.fr` (front)
@@ -302,7 +306,8 @@ Edge Functions : montées en volume Docker dans le service `functions`. Redéplo
 - **Aucune clé en dur dans le bundle client** (vs aujourd'hui où `firebaseConfig` est en dur). Seules valeurs publiques : `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (anon = JWT public, OK par design Supabase).
 - **`SERVICE_ROLE_KEY` jamais exposée au front**. Utilisée uniquement par les Edge Functions (env var) et les scripts d'ops (depuis le VPS).
 - **CORS** : restreint à `https://terrasse-au-soleil.fr` et `http://localhost:3000` côté GoTrue + Edge Functions. Pas de wildcard.
-- **Rate limiting Kong** sur les Edge Functions (60 req/min/IP par défaut) pour protéger les budgets LLM contre abus. Configurable dans `docker-compose.yml`.
+- **Rate limiting Kong** sur les Edge Functions (60 req/min/IP par défaut) pour protéger les budgets LLM contre abus. Configurable dans le `docker-compose.override.yml` ou la config Kong déclarative.
+- **Postgres jamais exposé publiquement** : binding forcé à `127.0.0.1:5434` via `docker-compose.override.yml` (sinon Docker bypass UFW sur Ubuntu et expose 5432 sur l'IP publique — pattern de garde-fou repris d'iremia).
 - **Tests RLS** dans `db/tests/rls_smoke.sql` exécutés en CI/local : un client `anon` ne doit pas pouvoir lire `profiles`, ne doit pas pouvoir écrire `ads`, etc.
 
 ## Risques
