@@ -7,6 +7,7 @@ import { scoreEstablishment, SEO_REFERENCE_DATE, computeSunScore, type SunScore 
 import { fetchBuildings, inferFacing, isShadowed, type Building } from './buildings';
 import type { BBox } from './nominatim';
 import type { City, Quartier } from '../data/cities';
+import type { VariationType } from './urls';
 
 export interface PageData {
   bbox: BBox;
@@ -108,9 +109,16 @@ async function getOrComputeSunScore(est: Establishment, buildings: Building[]): 
   return score;
 }
 
-async function getOrGenerateIntro(pageId: string, city: City, quartier: Quartier | null, bbox: BBox): Promise<string> {
+async function getOrGenerateIntro(
+  pageId: string,
+  city: City,
+  quartier: Quartier | null,
+  bbox: BBox,
+  variation?: VariationType,
+): Promise<string> {
   const db = getDb();
-  const cached = await getCached<string>(db, 'pageIntros', pageId, TTL.INTRO);
+  const cacheId = variation ? `${pageId}-${variation}` : pageId;
+  const cached = await getCached<string>(db, 'pageIntros', cacheId, TTL.INTRO);
   if (cached) return cached;
   const centerLat = (bbox.north + bbox.south) / 2;
   const centerLng = (bbox.east + bbox.west) / 2;
@@ -119,21 +127,36 @@ async function getOrGenerateIntro(pageId: string, city: City, quartier: Quartier
     quartier: quartier?.name ?? null,
     lat: centerLat,
     lng: centerLng,
+    variation,
   });
-  await setCached(db, 'pageIntros', pageId, intro);
+  await setCached(db, 'pageIntros', cacheId, intro);
   return intro;
 }
 
-async function getOrGenerateFaq(pageId: string, city: City, quartier: Quartier | null): Promise<FaqEntry[]> {
+async function getOrGenerateFaq(
+  pageId: string,
+  city: City,
+  quartier: Quartier | null,
+  variation?: VariationType,
+): Promise<FaqEntry[]> {
   const db = getDb();
-  const cached = await getCached<FaqEntry[]>(db, 'pageFaqs', pageId, TTL.FAQ);
+  const cacheId = variation ? `${pageId}-${variation}` : pageId;
+  const cached = await getCached<FaqEntry[]>(db, 'pageFaqs', cacheId, TTL.FAQ);
   if (cached) return cached;
-  const faq = await generateFaq({ ville: city.name, quartier: quartier?.name ?? null });
-  await setCached(db, 'pageFaqs', pageId, faq);
+  const faq = await generateFaq({
+    ville: city.name,
+    quartier: quartier?.name ?? null,
+    variation,
+  });
+  await setCached(db, 'pageFaqs', cacheId, faq);
   return faq;
 }
 
-export async function buildPageData(city: City, quartier: Quartier | null): Promise<PageData> {
+export async function buildPageData(
+  city: City,
+  quartier: Quartier | null,
+  variation?: VariationType,
+): Promise<PageData> {
   const pageId = quartier ? `${city.slug}-${quartier.slug}` : city.slug;
   const bbox = await getOrFetchBBox(city, quartier);
   const all = await getOrFetchEstablishments(pageId, bbox);
@@ -148,8 +171,8 @@ export async function buildPageData(city: City, quartier: Quartier | null): Prom
     top.map(async (e) => ({ ...e, sun: await getOrComputeSunScore(e, buildings) })),
   );
 
-  const intro = await getOrGenerateIntro(pageId, city, quartier, bbox);
-  const faq = await getOrGenerateFaq(pageId, city, quartier);
+  const intro = await getOrGenerateIntro(pageId, city, quartier, bbox, variation);
+  const faq = await getOrGenerateFaq(pageId, city, quartier, variation);
 
   return { bbox, establishments: enriched, intro, faq };
 }
