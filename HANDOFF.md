@@ -2,63 +2,39 @@
 
 Ce fichier est le point de reprise partagé entre les 3 PCs. Il vit dans le repo et suit via `git pull`.
 
-## 📍 État du projet — 2026-04-27 fin de journée (Phase 7 en cours)
+## 📍 État du projet — 2026-04-27 fin de journée
 
-**Migration Firebase → Supabase : Phases 0-6 ✅ terminées. Phase 7 (smoke test + cutover) en cours.**
+**Migration Firebase → Supabase : 100% terminée. Stack production sans aucune dépendance Firebase.**
 
 - Spec : [`docs/superpowers/specs/2026-04-27-migration-firebase-supabase-design.md`](docs/superpowers/specs/2026-04-27-migration-firebase-supabase-design.md)
 - Plan : [`docs/superpowers/plans/2026-04-27-migration-firebase-supabase.md`](docs/superpowers/plans/2026-04-27-migration-firebase-supabase.md)
 - Repo infra : https://github.com/SteF69Lyon/terrasses-supabase-stack
 
-### Ce qui marche
-- Stack Supabase opérationnelle sur `https://api.terrasse-au-soleil.fr` (VPS Hostinger 195.35.29.52, container project `terrasses`)
-- 13 services Up : Postgres + GoTrue + PostgREST + Realtime + Storage + Edge Runtime + Studio + Kong + Vector + Analytics + Meta + ImgProxy + Pooler
-- 3 tables (`profiles`, `ads`, `osm_cache`) + RLS policies + tests RLS verts
-- 2 Edge Functions : `search-terraces` (OSM Overpass + AI router multi-provider Claude/OpenAI/Gemini) et `live-token` (auth-gated Gemini Live API)
-- Cron backup quotidien 03:00 UTC vers Scaleway via rclone+GPG
-- Front sur branche `feat/supabase-migration` (6 commits, build passe clean) :
-  - `dbService.ts` : Auth + Profiles + Ads + Realtime sur Supabase
-  - `searchService.ts` + `liveTokenService.ts` : appels Edge Functions
-  - `geminiService.ts` : zéro Firebase, TTS proprement coupé (UI affiche "Audio indisponible")
-  - `firebase` reste en dépendance npm jusqu'à Phase 9 (filet de sécurité)
-  - Branche poussée sur GitHub : https://github.com/SteF69Lyon/Terrasses-au-soleil/tree/feat/supabase-migration
+### Ce qui marche en prod
+- **Stack Supabase** sur `https://api.terrasse-au-soleil.fr` (VPS Hostinger 195.35.29.52, project `terrasses`)
+  - 13 services Up : Postgres + GoTrue + PostgREST + Realtime + Storage + Edge Runtime + Studio + Kong + Vector + Analytics + Meta + ImgProxy + Pooler
+  - Tables : `profiles`, `ads`, `osm_cache`, `seo_cache` + RLS policies
+  - Edge Functions : `search-terraces` (multi-provider AI router avec retry + extracteur JSON bracket-balanced + maxTokens 4000), `live-token`
+  - Cron backup quotidien 03:00 UTC vers Scaleway
+- **SPA** (`https://terrasse-au-soleil.fr/app/`) : recherche live via Edge Functions, scoring soleil déterministe + météo Open-Meteo (cache lat/lng arrondis pour éviter 429), graphique horaire 9h-21h, photos OSM, OG cards
+- **173 pages SEO Astro statiques** (`/`, `/terrasses/[ville]/`, `/terrasses/[ville]/[quartier]/`, variations lexicales) générées au build par GHA, scoring soleil cached dans `seo_cache` Postgres pour les rebuilds suivants en ~5 min
+- **Routeur AI multi-provider** (`src/lib/ai-router.ts` côté Astro Node, `_shared/ai-router.ts` côté Edge Functions Deno) : Claude Sonnet 4.5 → GPT-4o-mini → Gemini 2.5 Flash, fallback automatique sur transient errors
 
-### Ce qui bloque actuellement (à reprendre ce soir)
+### Stack technique côté code (branche `main`)
+- Astro 6 + React 19 (SEO statique)
+- React 19 + Vite 6 (SPA dans `app/`)
+- `@supabase/supabase-js` (front et build)
+- AI : `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_BUILD_KEY` en GitHub secrets
+- 0 dépendance `firebase*` ou `@google/genai` (tout viré)
+- Pas de `firebase.json`, `.firebaserc`, `firestore.rules`, `functions/`
 
-1. **Bug `sunExposure: null` sur tous les résultats de recherche** — quand on met le slider d'ensoleillement > 0, plus aucun résultat n'apparaît. Cause probable : le LLM renvoie les `id` au format différent de ce qu'on envoie (number vs string), ou il hedge trop avec `null`. **Patch debug poussé sur le repo infra** (commit `fc7c1cf` : `debug(search-terraces): log LLM response + tolerate id as number/string in match`). À tester en relançant la stack VPS et en lisant les logs container.
+### Ce qui reste à régler (non bloquant)
 
-2. **WebSocket Realtime échoue** (`wss://api.terrasse-au-soleil.fr/realtime/v1/websocket`) — Traefik n'upgrade probablement pas vers WS. N'affecte que le refresh temps réel des `ads` admin, pas la recherche. À fixer après le bug #1.
+1. **WebSocket Realtime** (`wss://api.terrasse-au-soleil.fr/realtime/v1/websocket`) — Traefik n'upgrade pas vers WS. N'affecte que le refresh temps réel des `ads` admin, pas la recherche ni les pages SEO. À fixer dans la config Traefik VPS quand bon te semble.
 
-3. **`.env.local` doit être copié à la bonne place** sur chaque PC : Vite tourne depuis `app/`, donc `.env.local` doit être dans `app/.env.local` (et NON pas à la racine). Voir section "Reprise rapide" plus bas.
+2. **Indexation Google** — Search Console : 173 URLs découvertes, ~4 indexées. Lent par défaut sur domaine neuf, accélère avec backlinks. Voir chantiers F (blog SEO) et 5 (Core Web Vitals) du HANDOFF historique.
 
-### Pour reprendre (suite de Phase 7)
-
-Sur le VPS :
-```bash
-ssh root@195.35.29.52
-cd /opt/terrasses-supabase && git pull --ff-only
-docker restart terrasses-supabase-functions
-sleep 3
-
-ANON=$(grep ^ANON_KEY= /opt/terrasses-supabase/upstream-supabase/docker/.env | cut -d= -f2-)
-curl -s -X POST "https://api.terrasse-au-soleil.fr/functions/v1/search-terraces" \
-  -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
-  -H "Content-Type: application/json" \
-  -d '{"location":"Lyon","type":"bar","date":"2026-04-30","time":"18:00"}' \
-  | python3 -c "import sys, json; d=json.load(sys.stdin); print(f'{len(d[\"results\"])} results'); print(json.dumps([{k: r[k] for k in (\"name\",\"sunExposure\",\"description\")} for r in d['results'][:3]], indent=2, ensure_ascii=False))"
-
-echo
-docker logs --tail=30 terrasses-supabase-functions 2>&1 | grep -i "search-terraces"
-```
-
-Coller ces sorties à Claude pour qu'il diagnostique (les logs incluent maintenant la réponse LLM brute + un compte des IDs matchés).
-
-Une fois le bug fixé :
-- Re-lancer `npm run dev` côté front, valider la golden path (register + search + admin ads + live)
-- Ouvrir Studio (tunnel `ssh -L 3010:127.0.0.1:3010 root@195.35.29.52` puis `http://127.0.0.1:3010`) et créer le compte admin `sflandrin@outlook.com` (Authentication → Add User + Auto Confirm) + insérer la ligne `profiles` correspondante
-- Configurer les vars Hostinger panel (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)
-- Merge `feat/supabase-migration` → `main`, push → Hostinger redéploie en prod
-- 7 jours d'observation puis Phase 8 (suppression Cloud Functions Firebase + durcissement règles Firestore)
+3. **AdSense** — En attente du courrier Google de validation. Une fois la clé reçue, secret GitHub `PUBLIC_ADSENSE_CLIENT` + rebuild = pubs partout.
 
 ### Crédentiels et URLs utiles
 
