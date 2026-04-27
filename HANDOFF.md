@@ -2,6 +2,16 @@
 
 Ce fichier est le point de reprise partagé entre les 3 PCs. Il vit dans le repo et suit via `git pull`.
 
+## 📍 État du projet — 2026-04-27 (en cours de migration)
+
+**Migration Firebase → Supabase en cours sur la branche `feat/supabase-migration`.**
+
+- Spec : [`docs/superpowers/specs/2026-04-27-migration-firebase-supabase-design.md`](docs/superpowers/specs/2026-04-27-migration-firebase-supabase-design.md)
+- Plan : [`docs/superpowers/plans/2026-04-27-migration-firebase-supabase.md`](docs/superpowers/plans/2026-04-27-migration-firebase-supabase.md)
+- Repo infra : https://github.com/SteF69Lyon/terrasses-supabase-stack
+
+Phase 6 (refactor frontend) terminée sur la branche. Phase 7 (cutover) à venir.
+
 ---
 
 ## 🚀 Reprise rapide
