@@ -1,0 +1,67 @@
+---
+import Layout from '@/components/Layout.astro';
+import Breadcrumb from '@/components/Breadcrumb.astro';
+import TerraceCard from '@/components/TerraceCard.astro';
+import AdSlot from '@/components/AdSlot.astro';
+import FaqList from '@/components/FaqList.astro';
+import LiveSunBanner from '@/components/LiveSunBanner.astro';
+import type { City } from '@/data/cities';
+import { buildPageData } from '@/lib/buildData';
+import { absoluteUrl, variationUrl, villeUrl, SITE, type VariationType } from '@/lib/urls';
+import { breadcrumbList, itemList, webPage, faqPage } from '@/lib/jsonld';
+import type { Establishment } from '@/lib/overpass';
+
+export interface Props {
+  city: City;
+  variation: VariationType;
+  title: string;
+  h1: string;
+  filter: (e: Establishment) => boolean;
+}
+
+const { city, variation, title, h1, filter } = Astro.props;
+const data = await buildPageData(city, null);
+const filtered = data.establishments.filter(filter);
+
+const pageTitle = `${title} — Terrasses au soleil`;
+const pageDesc = `${h1}. ${filtered.length} adresses sélectionnées avec analyse d'ensoleillement.`;
+const canonical = absoluteUrl(variationUrl(variation, city.slug));
+
+const crumbs = [
+  { name: 'Accueil', url: SITE + '/' },
+  { name: city.name, url: absoluteUrl(villeUrl(city.slug)) },
+  { name: title, url: canonical },
+];
+
+const jsonld = [
+  breadcrumbList(crumbs),
+  webPage({ name: pageTitle, description: pageDesc, url: canonical, aboutPlaceName: city.name }),
+  itemList(filtered.map((e) => ({ name: e.name, type: e.type, address: e.address, lat: e.lat, lng: e.lng }))),
+  faqPage(data.faq),
+];
+---
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+  <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
+  <h1>{h1}</h1>
+  <LiveSunBanner />
+  <p>{data.intro}</p>
+
+  <AdSlot slotId="1111111111" format="horizontal" />
+
+  <section>
+    <h2>{filtered.length} adresses à {city.name}</h2>
+    {filtered.slice(0, 3).map((e, i) => <TerraceCard est={e} position={i + 1} />)}
+    <AdSlot slotId="2222222222" format="rectangle" />
+    {filtered.slice(3, 10).map((e, i) => <TerraceCard est={e} position={i + 4} />)}
+    <AdSlot slotId="3333333333" format="rectangle" />
+    {filtered.slice(10).map((e, i) => <TerraceCard est={e} position={i + 11} />)}
+  </section>
+
+  <p><a href={villeUrl(city.slug)}>← Toutes les terrasses à {city.name}</a></p>
+
+  <a class="cta" href={`/app/?city=${encodeURIComponent(city.name)}`}>
+    Affiner en temps réel →
+  </a>
+
+  <FaqList items={data.faq} />
+</Layout>

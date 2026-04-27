@@ -1,0 +1,81 @@
+name: Build and deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Monthly rebuild (1st day, 03:00 UTC) so osmCache (30d TTL) refreshes
+    # and new establishments from OpenStreetMap appear on the SEO pages.
+    - cron: '0 3 1 * *'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install SPA dependencies
+        working-directory: ./app
+        run: npm ci
+
+      - name: Build (OG + Astro + SPA + merge)
+        env:
+          GEMINI_BUILD_KEY: ${{ secrets.GEMINI_BUILD_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PUBLIC_ADSENSE_CLIENT: ${{ secrets.PUBLIC_ADSENSE_CLIENT }}
+          VITE_ADMIN_EMAIL: ${{ secrets.VITE_ADMIN_EMAIL }}
+        run: |
+          npm run build:og
+          npm run build:app
+          npm run build:astro
+          npm run build:merge
+
+      - name: List built dist/
+        run: |
+          echo "--- dist/ top-level ---"
+          ls -la dist/
+          echo "--- number of HTML pages ---"
+          find dist/ -name '*.html' | wc -l
+
+      - name: Normalize server-dir (ensure trailing slash)
+        id: ftp
+        env:
+          RAW_DIR: ${{ secrets.FTP_SERVER_DIR }}
+        run: |
+          DIR="$RAW_DIR"
+          [[ "$DIR" != */ ]] && DIR="$DIR/"
+          echo "server_dir=$DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy via FTPS to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./dist/
+          server-dir: ${{ steps.ftp.outputs.server_dir }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**

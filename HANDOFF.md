@@ -1,204 +1,282 @@
 # Handoff — reprise du travail entre PCs
 
-Ce fichier est le point de reprise partagé entre les 3 PCs. Il est mis à jour à la fin de chaque session. Il vit dans le repo donc il suit via `git pull`.
+Ce fichier est le point de reprise partagé entre les 3 PCs. Il vit dans le repo et suit via `git pull`.
 
 ---
 
-## 🚀 Reprise rapide (à lire en premier)
+## 🚀 Reprise rapide
 
 ### Sur un PC déjà setup
 
 ```bash
 cd /c/dev/terrasses-au-soleil
 git pull origin main
-# Si de nouvelles deps sont arrivées :
-npm install
-cd app && npm install && cd ..
-# Ouvre ton éditeur / Claude Code ici
+npm install              # deps racine (Astro)
+cd app && npm install    # deps SPA
+cd .. && cd functions && npm install    # deps Cloud Functions
 ```
 
-### Sur un PC où le projet n'est pas encore setup
+### Sur un nouveau PC (setup complet)
 
 ```bash
-# 1. Cloner à l'emplacement standard (hors OneDrive — important)
+# 1. Cloner hors OneDrive
 mkdir -p /c/dev
 git clone https://github.com/SteF69Lyon/Terrasses-au-soleil.git /c/dev/terrasses-au-soleil
 cd /c/dev/terrasses-au-soleil
 
-# 2. Se mettre sur main et tirer la dernière version
-git checkout main
-git pull
-
-# 3. Installer les dépendances frontend (SPA actuelle)
+# 2. Installer les 3 jeux de deps
 npm install
-
-# 4. Installer les dépendances des Cloud Functions
+cd app && npm install && cd ..
 cd functions && npm install && cd ..
 
-# 5. Recréer le fichier .env.local (non commité, spécifique à chaque PC)
-echo "VITE_ADMIN_EMAIL=sflandrin@outlook.com" > .env.local
+# 3. Recréer app/.env.local (non commité, spécifique à chaque PC)
+echo "VITE_ADMIN_EMAIL=sflandrin@outlook.com" > app/.env.local
 
-# 6. Vérifier que la CLI Firebase est connectée
-firebase projects:list
-# Si pas connecté :
-firebase login
+# 4. CLI Firebase
+firebase projects:list    # si pas connecté : firebase login
 firebase use terrassesausoleil
 
-# 7. Vérifier que tout compile
-npm run build
+# 5. Vérifier compile
+npm run build:astro    # produit dist/ avec la landing
+cd app && npm run build    # produit app/dist/
 
-# 8. (Optionnel, test complet) lancer le dev server
-npm run dev
-# Puis ouvrir http://localhost:3000
+# 6. (Optionnel) dev server
+cd app && npm run dev    # http://localhost:3000/app/
 ```
 
-Une fois ces étapes passées, ouvrir Claude Code dans ce dossier et taper :
-> *"Reprends le travail, lis HANDOFF.md"*
-
-Claude lira ce fichier et enchaînera sur la tâche en cours.
+Ouvrir Claude Code dans le repo et dire : *"Reprends le travail, lis HANDOFF.md"*.
 
 ---
 
-## 📍 État du projet — 2026-04-21 fin de journée
+## 🌅 Reprise — à lire en premier
 
-### Ce qui est terminé ✅
+**Dernière session** : 2026-04-23. Chantier "star de l'été" complet (PRs #26-29), fix SPA search (PRs #31-32), puis debug sitemap GSC (sitemap supprimé + resoumis dans Search Console à 11h environ).
 
-**Sécurisation Gemini/Firebase (Task 9 du premier plan)** — tout est en prod :
-- Secret `GEMINI_API_KEY` enregistré dans Firebase
-- 3 Cloud Functions déployées en `europe-west1` (`geminiSearch`, `geminiTts`, `geminiLiveToken`)
-- Règles Firestore durcies déployées (default-deny + règles sur `profiles`, `ads`, caches SEO)
-- Clé Gemini absente du bundle client en prod (vérifié par grep)
-- Variable `VITE_ADMIN_EMAIL` en place sur Hostinger
-- Branche `claude/musing-cartwright-e84790` mergée sur `main`
-- Hostinger a auto-déployé sur `terrasse-au-soleil.fr`
+**À valider dès la reprise (2 min) :**
 
-### Ce qui reste à tester manuellement (5 min)
+1. **Recherche SPA** : https://terrasse-au-soleil.fr/app/ → chercher `café juliette Lyon` (cas qui foirait en "Erreur IA : internal"). PR #32 a ajouté un extracteur JSON bracket-balanced (Cloud Function redéployée manuellement).
+   - ✅ Si ça marche : tout OK.
+   - ❌ Si re-crash : `firebase functions:log --only geminiSearch | tail -40` → les logs donnent maintenant la tête + queue du JSON qui plante.
 
-- Ouvrir `https://terrasse-au-soleil.fr` dans le navigateur et tester :
-  - [ ] Une recherche de terrasse (doit appeler `europe-west1-terrassesausoleil.cloudfunctions.net`, visible dans l'onglet Réseau du devtools)
-  - [ ] Le bouton TTS d'une description
-  - [ ] L'assistant vocal **connecté** (doit s'ouvrir normalement)
-  - [ ] L'assistant vocal **déconnecté** (doit afficher une erreur gérée, pas crash)
-- Dans Firebase Console → Firestore → Rules → Rules Playground :
-  - [ ] Écriture `ads/test` par un user non-admin → **Denied**
-  - [ ] Écriture `ads/test` par user `sflandrin@outlook.com` → **Allowed**
+2. **Sitemap Search Console** : https://search.google.com/search-console → Sitemaps
+   - Le sitemap a été **supprimé puis resoumis** en fin de session précédente pour forcer Google à refetcher (le cache précédent ne voyait que 1 URL à cause d'un ancien état transitoire).
+   - **État attendu** après 12-24h : "Pages découvertes" doit être passé de 1 à **173**.
+   - Si toujours à 1 après 48h : on soupçonne un bug plus profond (peu probable, le XML côté serveur est OK à 173 URLs).
 
-### Prochain chantier : pages SEO statiques pour trafic AdSense
+3. **Indexation Google — onglet "Pages"** : normal de voir 0-5 URLs indexées les premiers jours, monte sur plusieurs semaines pour atteindre ~70-90% du sitemap. Indexation manuelle demandée pour les 5 plus grosses villes — quota GSC ~10/jour.
 
-**Objectif métier :** générer du trafic organique sur le site (le business model repose sur AdSense, la SPA actuelle est invisible à Google).
+**Site en prod fonctionnel pour les pages SEO.** Seul risque résiduel : la search SPA peut encore foirer sur certaines queries spécifiques (format Gemini imprévisible) — à surveiller.
 
-**Documents de référence :**
-- Design validé : [`docs/superpowers/specs/2026-04-21-seo-pages-statiques-astro-design.md`](docs/superpowers/specs/2026-04-21-seo-pages-statiques-astro-design.md)
-- Plan d'implémentation détaillé (23 tasks) : [`docs/superpowers/plans/2026-04-21-seo-pages-statiques-astro.md`](docs/superpowers/plans/2026-04-21-seo-pages-statiques-astro.md)
+**Roadmap complète "star de l'été" (établie 2026-04-23 PM, à attaquer en sessions suivantes) :**
 
-**Résumé de l'approche validée :**
-- Hybride : Astro statique à la racine pour les pages SEO, SPA Vite existante déplacée dans `app/`. Un seul `dist/` fusionné est déployé.
-- Source de données : OpenStreetMap (Overpass) + analyse Gemini au build. Caché dans Firestore avec TTL.
-- V1 : ~95 pages au premier déploiement (15 villes × 4 variations lexicales + ~18 quartiers sur les 5 grandes villes), extensible à ~200 après validation Google.
-- AdSense : emplacements prévus mais invisibles tant que les IDs AdSense ne sont pas fournis (après validation du compte).
+### 🔥 Quick wins (priorisés, chacun 20-30 min)
 
-**Exécution recommandée :** demander à Claude Code dans cette session :
-> *"Exécute le plan `docs/superpowers/plans/2026-04-21-seo-pages-statiques-astro.md` en subagent-driven (un sub-agent par task, review entre chaque)."*
+- **A — Filtre "ouvert maintenant"** : parser le tag OSM `opening_hours` (présent sur ~60% des établissements), filtrer ou griser ceux fermés à l'heure courante. Change radicalement l'utilité côté user ("je veux un café dans 10 min").
+- **B — Live-sun + hourly chart dans la SPA** : porter le module `src/scripts/live-sun.ts` dans `app/components/TerraceCard.tsx` pour que la SPA ait la même expérience live que les pages SEO. Cohérence UX, gratuit.
+- **C — Markers Leaflet colorés par score soleil** : actuellement tous bleus. Rouge (<25%) → orange → jaune (>65%). Visualisation instantanée sur la carte.
+- **D — Bouton "Partager cette terrasse"** : deep-link + copier le lien, opti WhatsApp/Instagram/Twitter. Favorise la viralité entre amis.
 
-Ou alternative plus directe :
-> *"Exécute le plan en inline execution, avec checkpoint après chaque groupe de 3 tasks."*
+### 📈 Moyen terme (2-4h chacun)
 
-Le plan démarre par la Task 1 (déplacement de la SPA dans `app/`) qui est une opération réversible via Git, donc safe.
+- **E — Filtres avancés pages SEO** : checkboxes "terrasse avec vue" (`view`), "bord de l'eau" (`waterway` à proximité), "enfants acceptés" (`child_friendly`), "chien accepté" (`dog`), etc. Tags OSM existants.
+- **F — Section blog SEO** : 5-10 articles longue traîne type *"Où boire un verre au soleil le dimanche à Paris"*, *"Les 10 terrasses les plus ensoleillées à Lyon en septembre"*. Énorme levier Google pour les requêtes complexes. À générer via Gemini au build et cacher 1 an.
+- **G — Push notifications web** : "Demain 26°C et 18h d'ensoleillement — votre terrasse favorite à Lyon est à 85% de soleil". Service Worker + abonnement. Rétention user.
 
-**Pré-requis avant de lancer l'exécution du plan :**
-1. Avoir un service account Firebase pour le build local/CI.
-   - Firebase Console → Project settings → Service accounts → Generate new private key
-   - Sauvegarder le JSON dans `/c/Users/<user>/terrasses-sa.json` (hors repo)
-2. Export dans le shell avant de builder :
-   ```bash
-   export FIREBASE_SERVICE_ACCOUNT="$(cat /c/Users/<user>/terrasses-sa.json)"
-   export GEMINI_BUILD_KEY="ta_cle_gemini"
-   ```
-3. (Pour que la GitHub Action marche plus tard) ajouter ces 2 secrets sur GitHub :
-   - Repo Settings → Secrets and variables → Actions → New repository secret
-   - `FIREBASE_SERVICE_ACCOUNT` (contenu du JSON complet)
-   - `GEMINI_BUILD_KEY` (la clé Gemini)
+### 🚀 Long terme (gros chantiers)
+
+- **H — PWA installable** : manifest + service worker + cache offline. Permet installation comme app mobile sans app store. Intéressant pour les users fidèles.
+- **I — Multi-langue EN/IT/DE** : Astro i18n + traduction des templates. Cible touristes l'été (fort potentiel trafic Paris, Nice, Marseille).
+- **J — User reviews** : scores soleil crowdsourcés, commentaires, photos. Compte Firebase Auth + Firestore `reviews` collection. Augmente la qualité perçue et le content unique.
+
+### Chantiers techniques / business en cours ou à planifier
+
+- **Indexation Google** (passif, 1-4 semaines) : suivre le compteur "Pages" dans GSC.
+- **AdSense** : valider compte → client ID → secret GitHub `PUBLIC_ADSENSE_CLIENT`. Emplacements déjà câblés.
+- **Promotion payante** : champ `promotionScore` per établissement, tri pondéré, badge "Partenaire".
+- **Phase 3 scoring soleil** : imagerie satellite/Street View pour orientation réelle au-delà du polygone OSM.
+- **Bundle SPA 968 kB** : dynamic imports dans `app/services/geminiService.ts` pour Core Web Vitals.
+- **Expansion 250-300 pages** : plus de villes (Le Mans, Limoges, Poitiers, Pau, Perpignan, Metz, Nancy, Caen, Brest).
+
+---
+
+## 📍 État du projet — 2026-04-23 fin de journée
+
+Site complet en prod, 173 pages SEO, architecture stable. Le site sert :
+
+- **Landing** `https://terrasse-au-soleil.fr/` : directory des 22 villes + intro + OG card personnalisée
+- **~173 pages SEO** générées statiquement par Astro :
+  - `/terrasses/[ville]/` (22 pages)
+  - `/terrasses/[ville]/[quartier]/` (62 pages)
+  - `/bar-ensoleille-[ville]/`, `/cafe-terrasse-[ville]/`, `/restaurant-terrasse-[ville]/`, `/ou-boire-un-verre-au-soleil-[ville]/` (88 pages)
+- **SPA** `https://terrasse-au-soleil.fr/app/` : recherche IA temps réel
+- **Sitemap** `https://terrasse-au-soleil.fr/sitemap-index.xml`
+- **23 OG cards** `https://terrasse-au-soleil.fr/og/{slug}.png` (22 villes + default)
+
+### Features utilisateur des pages SEO
+
+Chaque page quartier/ville/variation propose :
+- **Bannière live** (JS client-side) : heure actuelle, couverture nuageuse actuelle, score moyen, "meilleure terrasse maintenant"
+- **Par terrasse** :
+  - Photo (si taggée `wikimedia_commons` ou `image` dans OSM)
+  - Score soleil statique (réf. 21 juin 17h Paris, calculé par suncalc + orientation bâtiment OSM + ombres portées)
+  - Badge "Maintenant: X%" (live, réel à l'heure de visite)
+  - Mini-graphique horaire 9h→21h (prévision suncalc × cloudcover Open-Meteo)
+  - Analyse texte : orientation, élévation solaire, météo, ombre portée si pertinent
+  - Lien Google Maps + site web si présent
+- **MiniMap Leaflet** avec tous les markers
+- **FAQ** (générée par Gemini au build, cachée 180j)
+- **Intro narrative** (générée par Gemini au build, cachée 180j)
+- **Quartiers liés** pour navigation inter-pages
+- **OG card personnalisée ville** (gradient orange + halo soleil + nom ville) pour partages sociaux
+
+### Scoring d'ensoleillement
+
+Remplacement complet des estimations Gemini par un calcul **déterministe** :
+
+- **Position soleil** : `suncalc` (algorithme NOAA) → azimuth + altitude précis pour une date/heure/lat/lng donnée
+- **Orientation de la terrasse** : déduite de la géométrie du bâtiment OSM le plus proche (perpendiculaire à l'arête la plus longue, pointant vers la rue). Fallback sud si aucun bâtiment dans un rayon de 80 m.
+- **Ombres portées** : projection 2D de l'ombre de chaque bâtiment voisin (height + tan(altitude)) → test point-dans-polygone. Si ombragé → multiplicateur 0.4 pour la lumière diffuse. Le bâtiment de l'établissement lui-même est exclu (distance < 8 m).
+- **Couverture nuageuse** (SPA uniquement, pas SEO) : Open-Meteo API à la date/heure de recherche → facteur `(1 - cloud/100)`
+- **Formule finale** : `cos(angle_soleil_vs_orientation) × sin(élévation) × (1 - nuages) × [0.4 si ombragé]`
+- **Référence SEO** : 21 juin 15:00 UTC (= 17h Paris CEST) — "typique après-midi d'été"
+
+Les pages SEO affichent pour chaque établissement l'orientation détectée, l'élévation du soleil en degrés, et mentionnent les ombres portées quand présentes. Les descriptions sont générées localement (pas d'appel Gemini à l'exécution).
+
+### Gemini reste utilisé pour
+
+- **Build SEO** : `generateIntro` (150-200 mots par page) + `generateFaq` (4 Q/R par page), générés une fois, cachés Firestore (180 j)
+- **SPA runtime** : `geminiSearch` → découverte d'établissements dans la zone (avec Google Search grounding). Plus aucune estimation soleil : retourne la liste, puis le client suncalc-alike (côté Cloud Function) calcule le score déterministe avec la météo Open-Meteo.
+
+### Déploiement
+
+**Workflow GitHub Actions** (`.github/workflows/deploy.yml`) :
+- Trigger : push sur `main`, workflow_dispatch manuel, OU **cron mensuel** (1er à 3h UTC) pour rafraîchir l'osmCache
+- Étapes : checkout → Node 22 → install (racine + app/) → build (app + astro + merge-dist) → deploy FTPS sur Hostinger
+- Durée premier build ~15 min (Overpass + Gemini pour 62 quartiers). Builds suivants ~3 min grâce au cache Firestore.
+
+**Secrets GitHub** (configurés dans repo Settings) :
+- `GEMINI_BUILD_KEY` — clé Gemini AI Studio pour intros + FAQ
+- `FIREBASE_SERVICE_ACCOUNT` — JSON entier du service account
+- `VITE_ADMIN_EMAIL` — email admin de la SPA
+- `FTP_HOST`, `FTP_USERNAME`, `FTP_PASSWORD`, `FTP_SERVER_DIR` — credentials FTPS Hostinger (FTP_SERVER_DIR = `./`)
+
+**Hostinger** : sert `dist/` depuis `/home/u221564868/domains/terrasse-au-soleil.fr/public_html/`. Un auto-deploy Hostinger natif coexiste en fallback (build sans creds → landing simple) mais le GHA FTPS écrase ensuite avec le build complet.
+
+**Repo public** : nécessaire pour débloquer les minutes GitHub Actions illimitées. Aucun secret dans le code ni dans l'historique git (SA JSON jamais commit, vérifié).
+
+### Données Firestore
+
+| Collection | Usage | TTL |
+|---|---|---|
+| `profiles` | Profils user SPA | persistant |
+| `ads` | Pubs SPA | persistant |
+| `osmCache` | Établissements OSM par page (clé `v2_*`, cap 100, avec imageUrl) | 30 j |
+| `osmBuildings` | Bâtiments OSM par page, polygones flat (cap 800, par hauteur desc) | 30 j |
+| `sunScores` | Scores déterministes par établissement (clé `d4_*`, avec facingDeg) | 90 j |
+| `pageIntros` | Textes Gemini d'intro de page | 180 j |
+| `pageFaqs` | FAQ Gemini par page | 180 j |
+| `cityGeo` | Bbox géocodées par ville/quartier | ∞ |
+
+**Note technique importante** : Firestore refuse les tableaux imbriqués. Les polygones de bâtiments (`[lng, lat][]`) sont donc stockés "flat" en `number[]` = `[lng1, lat1, lng2, lat2, ...]` et reconstruits au read. Géré par `toCached`/`fromCached` dans `src/lib/buildData.ts`.
 
 ---
 
 ## 🏗️ Contexte projet
 
-**App :** Terrasses-au-soleil — recherche de terrasses ensoleillées via IA.
+**App :** Terrasses-au-soleil — recherche de terrasses ensoleillées en France via IA, couplée à des pages SEO statiques.
 
-**URL prod :** https://terrasse-au-soleil.fr (hébergé Hostinger, auto-deploy sur push `main`)
+**URL prod :** https://terrasse-au-soleil.fr (Hostinger, FTPS via GitHub Action)
 
-**Stack actuelle (en cours de migration hybride) :**
-- Frontend : React 19 + Vite 6 (dans `app/` après Task 1 du nouveau plan, à la racine avant)
-- Backend : Firebase Cloud Functions v2 (Node 20, TypeScript, région `europe-west1`)
-- Data : Firestore (collections `profiles`, `ads` + collections SEO à venir)
-- IA : Gemini API (`@google/genai`, clé stockée en secret Firebase)
-- Auth : Firebase Auth
+**Stack :**
+- Astro 6 + React 19 (SEO statique)
+- React 19 + Vite 6 (SPA dans `app/`)
+- Firebase Cloud Functions v2, Node 22, europe-west1 (`geminiSearch`, `geminiTts`, `geminiLiveToken`)
+- Firestore (7 collections)
+- Gemini API (build + SPA runtime découverte)
+- Google AI Studio pour keys
+- OpenStreetMap Overpass (établissements + bâtiments)
+- Open-Meteo (météo SPA)
+- Leaflet (cartes)
 
-**Projet Firebase :** `terrassesausoleil` (id) — TerrassesAuSoleil (nom affiché)
+**Projet Firebase :** `terrassesausoleil`
 
-**Admin :** `sflandrin@outlook.com` (email utilisé pour les règles Firestore `ads` et la variable `VITE_ADMIN_EMAIL`)
+**Admin :** `sflandrin@outlook.com`
 
-**Repo GitHub :** https://github.com/SteF69Lyon/Terrasses-au-soleil
+**Repo GitHub :** https://github.com/SteF69Lyon/Terrasses-au-soleil (public)
 
-### Arbre actuel (avant exécution du nouveau plan)
+### Arbre
 
 ```
 /c/dev/terrasses-au-soleil/
-├── App.tsx, index.html, index.tsx, vite.config.ts, tsconfig.json  (SPA racine — sera déplacé)
-├── components/, services/, types.ts                               (SPA — sera déplacée)
-├── functions/                                                     (Cloud Functions — inchangé)
+├── astro.config.mjs, package.json, tsconfig.json, vitest.config.ts
+├── src/
+│   ├── pages/                   (landing + dynamiques : terrasses/, bar-ensoleille-*, etc.)
+│   ├── lib/                     (cache, urls, nominatim, overpass, buildings, sun, weather, gemini, jsonld, buildData, firebase)
+│   ├── components/              (Layout, Breadcrumb, TerraceCard, AdSlot, FaqList, MiniMap, CityVariationPage, RelatedAreas, LiveSunBanner)
+│   ├── scripts/live-sun.ts      (client-side : live banner + hourly chart, Astro bundle auto via <script>)
+│   ├── data/cities.ts           (22 villes, 62 quartiers)
+│   └── styles/global.css
+├── tests/lib/                   (39 tests Vitest)
+├── public/
+│   ├── robots.txt, og-default.jpg
+│   └── og/                      (généré au build, gitignored — 23 PNGs 1200×630)
+├── app/                         (SPA Vite React — package.json autonome)
+│   ├── App.tsx, components/, services/, index.html, vite.config.ts
+│   └── .env.local               (non commité, VITE_ADMIN_EMAIL)
+├── functions/                   (Cloud Functions — Node 22, firebase-functions v7)
+│   └── src/                     (geminiSearch, geminiTts, geminiLiveToken, sun.ts, weather.ts)
+├── scripts/
+│   ├── merge-dist.mjs           (combine app/dist + Astro dist)
+│   └── generate-og.mjs          (génère les 23 OG PNGs via resvg au build)
+├── .github/workflows/deploy.yml (CI/CD + cron mensuel)
 ├── firebase.json, firestore.rules, firestore.indexes.json, .firebaserc
-├── docs/superpowers/specs/          (design docs)
-├── docs/superpowers/plans/          (plans d'impl)
-├── HANDOFF.md                       (ce fichier)
-├── .env.local                       (non commité)
-└── dist/                            (généré au build, non commité)
-```
-
-### Après exécution du plan SEO (pour info)
-
-```
-/c/dev/terrasses-au-soleil/
-├── astro.config.mjs, package.json   (Astro racine)
-├── src/pages/, src/lib/, src/components/, src/data/
-├── tests/                           (Vitest)
-├── public/                          (robots.txt, og-default.jpg)
-├── app/                             (SPA Vite déplacée ici)
-│   ├── App.tsx, vite.config.ts, package.json, ...
-├── functions/                       (inchangé)
-├── scripts/merge-dist.mjs           (combine les deux builds)
-└── ...
+├── terrassesausoleil-firebase-adminsdk-*.json    (SA JSON local, gitignored)
+├── docs/superpowers/{specs,plans}/
+└── HANDOFF.md                   (ce fichier)
 ```
 
 ---
 
-## ⚠️ À prévoir prochainement (post-SEO)
+## ⏭️ Chantiers restants / idées
 
-Ces points ne sont pas bloquants aujourd'hui mais à traiter bientôt :
-
-- **Node 20 déprécié le 2026-04-30** (dans 9 jours). Il faut upgrader `functions/package.json` vers `"node": "22"` et retester le deploy avant cette date, sinon Firebase refusera les nouveaux deploys de Functions.
-- **`firebase-functions` obsolète** — upgrade vers v6.x. Breaking changes à gérer (voir release notes).
-- **Bundle Vite SPA à 964 kB** — warning au build, nuit au Core Web Vitals et donc au SEO. Code-splitting via dynamic imports sur `services/geminiService.ts` et les composants lourds. Chantier séparé post-SEO.
+- **Task 21 — Search Console** : **FAIT (propriété vérifiée)**. Sitemap soumis à re-actualiser une fois le dernier GHA terminé pour qu'il passe de 1 URL à 170 URLs.
+- **AdSense** : une fois du trafic installé, valider le compte AdSense → récupérer le client ID → l'ajouter en secret GitHub `PUBLIC_ADSENSE_CLIENT`. Les emplacements sont déjà câblés, ils apparaîtront au prochain build.
+- **Étape Promotion payante** : ajouter un champ `promoted: boolean` ou `promotionScore: number` sur chaque établissement. Trier par (promotionScore DESC, sunExposure DESC) dans les pages et SPA. Badge "Partenaire" visible.
+- **Expansion à 200-300 pages** : plus de quartiers par ville, ajouter plus de villes (Le Mans, Limoges, Poitiers, Pau, Perpignan, Metz, Nancy, Caen, Brest…).
+- **Phase 3 scoring** : intégrer imagerie satellite ou street view pour détecter l'orientation réelle des terrasses, au-delà du polygone OSM.
+- **Bundle SPA 968 kB** : code-splitting via dynamic imports sur `app/services/geminiService.ts` et composants lourds. Warning au build, impacte le Core Web Vitals.
+- **firebase-functions v6 → v7** : **FAIT** (session 2026-04-22)
+- **Node 20 → 22 Cloud Functions** : **FAIT** (avant deadline 2026-04-30)
 
 ---
 
 ## 🌐 Workflow cross-PC
 
-- Le repo est la seule source de vérité (pas OneDrive pour le code — ça corrompt les objets git).
+- Le repo est la seule source de vérité (pas OneDrive pour le code).
 - Fin de session : `git add -A && git commit -m "..." && git push`
 - Début de session : `git pull`
-- Si travail en cours non commité : **commit wip** avant de partir, même si le code ne fonctionne pas, avec un message `wip: <état>`. On rebase/squash au prochain bon moment.
-- Les fichiers mémoire Claude (`~/.claude/projects/…/memory/`) **ne sont pas synchronisés** entre PCs. Ce fichier HANDOFF.md est le vrai handoff partagé.
-- `.env.local` n'est jamais commité → à recréer manuellement sur chaque PC (voir section Reprise rapide).
+- Si WIP : commit `wip: <état>` avant de partir.
+- `.env.local` n'est pas commité — à recréer sur chaque PC.
+- Le SA JSON Firebase n'est **jamais** commité (gitignored via pattern `*-firebase-adminsdk-*.json`).
+- Pour builder localement avec creds, exporter dans le shell :
+  ```bash
+  export GOOGLE_APPLICATION_CREDENTIALS="/c/dev/terrasses-au-soleil/terrassesausoleil-firebase-adminsdk-fbsvc-198080c6ba.json"
+  export GEMINI_BUILD_KEY="ta_cle_gemini"
+  npm run build
+  ```
 
 ## 🔧 Commandes utiles
 
 | Besoin | Commande |
 |---|---|
-| Dev local (SPA actuelle) | `npm run dev` puis `http://localhost:3000` |
-| Build de prod | `npm run build` |
+| Dev SPA | `cd app && npm run dev` → http://localhost:3000/app/ |
+| Dev Astro | `npm run dev` → http://localhost:4321 |
+| Build complet (app + astro + merge) | `npm run build` |
+| Build Astro seul | `npm run build:astro` |
+| Tests | `npm test` |
+| Astro type-check | `npx astro check` |
 | Déployer règles Firestore | `firebase deploy --only firestore:rules` |
 | Déployer Cloud Functions | `firebase deploy --only functions` |
-| Voir les logs Functions | `firebase functions:log` |
-| Lister les secrets Firebase | `firebase functions:secrets:access <NOM>` (⚠️ affiche la valeur en clair) |
-| Projet Firebase courant | `firebase use` |
+| Logs Functions | `firebase functions:log` |
+| Trigger manuel GHA deploy | `gh workflow run "Build and deploy to Hostinger" --ref main` |
+| Voir runs GHA | `gh run list --workflow=deploy.yml --limit 5` |

@@ -1,0 +1,57 @@
+---
+import type { Establishment } from '@/lib/overpass';
+import type { SunScore } from '@/lib/sun';
+export interface Props {
+  est: Establishment & { sun: SunScore | null };
+  position: number;
+}
+const { est, position } = Astro.props;
+const typeLabel = { bar: 'Bar', cafe: 'Café', restaurant: 'Restaurant' }[est.type];
+const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${est.lat},${est.lng}`;
+// facing is exposed via data attribute for the client-side live-sun script.
+const facingDeg = est.sun?.facingDeg ?? 180;
+---
+<article
+  class="card"
+  itemscope
+  id={`t-${est.osmId.replace('/', '-')}`}
+  data-terrace
+  data-lat={est.lat}
+  data-lng={est.lng}
+  data-facing={facingDeg}
+  data-name={est.name}
+  data-opening-hours={est.openingHours ?? ''}
+>
+  {est.imageUrl && (
+    <div class="card-photo">
+      <img src={est.imageUrl} alt={`Photo de ${est.name}`} loading="lazy" width="480" height="280" />
+    </div>
+  )}
+  <div class="card-head">
+    <div>
+      <h2 itemprop="name"><span style="color: var(--color-muted); font-weight: normal;">{position}.</span> {est.name}</h2>
+      <div class="card-meta">
+        {typeLabel}
+        {est.address && <Fragment> · {est.address}</Fragment>}
+      </div>
+    </div>
+    {est.sun && (
+      <span class="sun-badge" aria-label={`Ensoleillement ${est.sun.sunPercent}%`}>
+        ☀️ {est.sun.sunPercent}%
+      </span>
+    )}
+  </div>
+  <div class="card-flags">
+    <span class="live-sun" data-live-sun aria-live="polite"></span>
+    <span class="open-status" data-open-status aria-live="polite"></span>
+  </div>
+  <div class="hourly-chart" data-hourly-chart hidden></div>
+  {est.sun?.analysis && <p>{est.sun.analysis}</p>}
+  <p>
+    <a href={mapsUrl} target="_blank" rel="noopener">Voir sur Google Maps</a>
+    {est.website && <Fragment> · <a href={est.website} target="_blank" rel="noopener">Site web</a></Fragment>}
+    <button type="button" class="share-btn" data-share-btn aria-label={`Partager ${est.name}`}>
+      ↗ Partager
+    </button>
+  </p>
+</article>

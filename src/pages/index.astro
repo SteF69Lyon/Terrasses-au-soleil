@@ -1,0 +1,43 @@
+---
+import Layout from '@/components/Layout.astro';
+import { CITIES } from '@/data/cities';
+import { villeUrl, absoluteUrl } from '@/lib/urls';
+import { webPage } from '@/lib/jsonld';
+
+const pageTitle = 'Terrasses au soleil — trouvez la meilleure terrasse ensoleillée en France';
+const pageDesc = 'Trouvez les terrasses ensoleillées près de chez vous. Analyse d\'exposition au soleil, carte, et recherche en temps réel assistée par IA.';
+const canonical = absoluteUrl('/');
+
+const jsonld = [webPage({ name: pageTitle, description: pageDesc, url: canonical })];
+---
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+  <h1>Trouvez la terrasse parfaite, au soleil</h1>
+  <p>
+    Terrasses au soleil recense les meilleurs bars, cafés et restaurants avec
+    terrasse ensoleillée dans les grandes villes françaises. Chaque adresse
+    est accompagnée d'une analyse de son exposition au soleil pour vous
+    permettre de choisir la bonne terrasse au bon moment.
+  </p>
+
+  <a class="cta" href="/app/">Lancer la recherche en temps réel →</a>
+
+  <section>
+    <h2>Explorer par ville</h2>
+    <nav class="related-areas" aria-label="Villes">
+      {CITIES.map((c) => (
+        <a href={villeUrl(c.slug)}>{c.name}</a>
+      ))}
+    </nav>
+  </section>
+
+  <section>
+    <h2>Comment ça marche</h2>
+    <p>
+      Chaque adresse est géolocalisée à partir d'OpenStreetMap. L'orientation
+      probable de la terrasse et son exposition au soleil à 17h en été sont
+      calculées par une analyse IA prenant en compte les rues avoisinantes et
+      l'angle solaire à cette latitude. Le score d'ensoleillement indique la
+      part de la terrasse qui sera exposée au soleil à cette heure-là.
+    </p>
+  </section>
+</Layout>
