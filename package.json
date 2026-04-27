@@ -22,7 +22,6 @@
     "@supabase/supabase-js": "^2.104.1",
     "@types/suncalc": "^1.9.2",
     "astro": "^6.1.0",
-    "firebase-admin": "^13.0.0",
     "leaflet": "^1.9.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
