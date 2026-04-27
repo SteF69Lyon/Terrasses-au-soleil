@@ -32,18 +32,37 @@ export function computeSunPercent(
   };
 }
 
-export async function fetchHourlyCloudCover(lat: number, lng: number, date: Date): Promise<number[] | null> {
+// Module-level cache of in-flight / completed weather fetches.
+// Key: rounded lat/lng (~10 km) + date → multiple terraces in the same
+// neighborhood share a single Open-Meteo call, killing the 429 storm.
+const weatherCache = new Map<string, Promise<number[] | null>>();
+
+export function fetchHourlyCloudCover(lat: number, lng: number, date: Date): Promise<number[] | null> {
   const isoDate = date.toISOString().split('T')[0];
-  const url =
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
-    `&hourly=cloudcover&start_date=${isoDate}&end_date=${isoDate}&timezone=UTC`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = (await res.json()) as { hourly?: { cloudcover: number[] } };
-    const covers = data.hourly?.cloudcover;
-    return covers && covers.length === 24 ? covers : null;
-  } catch {
-    return null;
-  }
+  const key = `${lat.toFixed(1)},${lng.toFixed(1)},${isoDate}`;
+  const existing = weatherCache.get(key);
+  if (existing) return existing;
+
+  const promise = (async (): Promise<number[] | null> => {
+    const url =
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(2)}&longitude=${lng.toFixed(2)}` +
+      `&hourly=cloudcover&start_date=${isoDate}&end_date=${isoDate}&timezone=UTC`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        // On rate-limit / failure, evict so a later mount can retry.
+        weatherCache.delete(key);
+        return null;
+      }
+      const data = (await res.json()) as { hourly?: { cloudcover: number[] } };
+      const covers = data.hourly?.cloudcover;
+      return covers && covers.length === 24 ? covers : null;
+    } catch {
+      weatherCache.delete(key);
+      return null;
+    }
+  })();
+
+  weatherCache.set(key, promise);
+  return promise;
 }
