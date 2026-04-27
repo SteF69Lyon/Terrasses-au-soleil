@@ -57,7 +57,19 @@ const jsonld = [
     {filtered.slice(10).map((e, i) => <TerraceCard est={e} position={i + 11} />)}
   </section>
 
-  <p><a href={villeUrl(city.slug)}>← Toutes les terrasses à {city.name}</a></p>
+  <section class="see-also">
+    <h2>Voir aussi à {city.name}</h2>
+    <ul class="see-also-list">
+      <li><a href={villeUrl(city.slug)}>Toutes les terrasses</a></li>
+      {variation !== 'bar' && <li><a href={variationUrl('bar', city.slug)}>Bars ensoleillés</a></li>}
+      {variation !== 'cafe' && <li><a href={variationUrl('cafe', city.slug)}>Cafés avec terrasse</a></li>}
+      {variation !== 'restaurant' && <li><a href={variationUrl('restaurant', city.slug)}>Restaurants avec terrasse</a></li>}
+      {variation !== 'verre' && <li><a href={variationUrl('verre', city.slug)}>Où boire un verre au soleil</a></li>}
+      {city.quartiers.slice(0, 4).map((q) => (
+        <li><a href={`/terrasses/${city.slug}/${q.slug}/`}>{q.name}</a></li>
+      ))}
+    </ul>
+  </section>
 
   <a class="cta" href={`/app/?city=${encodeURIComponent(city.name)}`}>
     Affiner en temps réel →
