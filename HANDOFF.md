@@ -4,7 +4,31 @@ Ce fichier est le point de reprise partagé entre les 3 PCs. Il vit dans le repo
 
 ---
 
-## 🚀 Reprise rapide
+## ⚡ MIGRATION FIREBASE → SUPABASE EN COURS (Phase 7)
+
+**État au 2026-04-27 fin de journée** : tout le code et l'infra sont sur la branche `feat/supabase-migration`. Pour reprendre, fais d'abord :
+
+```bash
+cd /c/dev/terrasses-au-soleil
+git fetch
+git checkout feat/supabase-migration
+```
+
+Puis lis le HANDOFF de cette branche (qui contient toutes les instructions de reprise détaillées + l'état du bug en cours sur `sunExposure: null`) :
+
+```bash
+cat HANDOFF.md
+```
+
+Ne pas lancer le dev server depuis main — le code main appelle encore les Cloud Functions Firebase. Tout le travail Supabase est sur la branche.
+
+Spec : [`docs/superpowers/specs/2026-04-27-migration-firebase-supabase-design.md`](docs/superpowers/specs/2026-04-27-migration-firebase-supabase-design.md)
+Plan : [`docs/superpowers/plans/2026-04-27-migration-firebase-supabase.md`](docs/superpowers/plans/2026-04-27-migration-firebase-supabase.md)
+Repo infra : https://github.com/SteF69Lyon/terrasses-supabase-stack
+
+---
+
+## 🚀 Reprise rapide (workflow normal pré-migration)
 
 ### Sur un PC déjà setup
 
