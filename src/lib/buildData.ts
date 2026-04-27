@@ -1,4 +1,4 @@
-import { getDb } from './firebase';
+import { getDb } from './supabase-admin';
 import { getCached, setCached, TTL } from './cache';
 import { geocodeThrottled } from './nominatim';
 import { fetchEstablishments, type Establishment } from './overpass';

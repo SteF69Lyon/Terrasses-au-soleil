@@ -1,32 +1,54 @@
-import type { Firestore } from 'firebase-admin/firestore';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface CacheEntry<T> {
   data: T;
   fetchedAt: number;
 }
 
+/**
+ * Read a cache entry from `seo_cache`. Returns null if missing OR stale.
+ * Stale = `fetchedAt + ttlMs < now`.
+ */
 export async function getCached<T>(
-  db: Firestore,
+  db: SupabaseClient,
   collection: string,
   id: string,
   ttlMs: number,
 ): Promise<T | null> {
-  const snap = await db.collection(collection).doc(id).get();
-  if (!snap.exists) return null;
-  const entry = snap.data() as CacheEntry<T> | undefined;
-  if (!entry) return null;
-  if (Date.now() - entry.fetchedAt > ttlMs) return null;
-  return entry.data;
+  const { data, error } = await db
+    .from('seo_cache')
+    .select('data, fetched_at')
+    .eq('collection', collection)
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  const fetchedAt = new Date(data.fetched_at as string).getTime();
+  if (!Number.isFinite(fetchedAt)) return null;
+  if (Date.now() - fetchedAt > ttlMs) return null;
+  return (data.data as unknown) as T;
 }
 
+/**
+ * Write/upsert a cache entry. `fetched_at` is set to now() server-side via
+ * default value, but we also pass it explicitly so subsequent reads don't
+ * depend on clock skew between Postgres and the build runner.
+ */
 export async function setCached<T>(
-  db: Firestore,
+  db: SupabaseClient,
   collection: string,
   id: string,
   data: T,
 ): Promise<void> {
-  const entry: CacheEntry<T> = { data, fetchedAt: Date.now() };
-  await db.collection(collection).doc(id).set(entry);
+  const { error } = await db.from('seo_cache').upsert(
+    {
+      collection,
+      id,
+      data: data as unknown as Record<string, unknown>,
+      fetched_at: new Date().toISOString(),
+    },
+    { onConflict: 'collection,id' },
+  );
+  if (error) throw new Error(`seo_cache upsert failed for ${collection}/${id}: ${error.message}`);
 }
 
 export const TTL = {

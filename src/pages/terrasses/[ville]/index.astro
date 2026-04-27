@@ -9,13 +9,13 @@ import MiniMap from '@/components/MiniMap.tsx';
 import LiveSunBanner from '@/components/LiveSunBanner.astro';
 import { CITIES, findCity } from '@/data/cities';
 import { buildPageData } from '@/lib/buildData';
-import { hasBuildCredentials } from '@/lib/firebase';
+import { hasBuildCredentials } from '@/lib/supabase-admin';
 import { absoluteUrl, villeUrl, SITE } from '@/lib/urls';
 import { breadcrumbList, itemList, webPage, faqPage } from '@/lib/jsonld';
 
 export async function getStaticPaths() {
   if (!hasBuildCredentials()) {
-    console.warn('[seo] Missing FIREBASE credentials or GEMINI_BUILD_KEY — skipping ville pages.');
+    console.warn('[seo] Missing SUPABASE credentials or GEMINI_BUILD_KEY — skipping ville pages.');
     return [];
   }
   return CITIES.map((c) => ({ params: { ville: c.slug } }));
