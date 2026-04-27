@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Terrace, SunLevel } from '../types';
 import { gemini } from '../services/geminiService';
 import SunHourlyChart from './SunHourlyChart';
+// TTS via Cloud Function est désactivé pendant la migration Supabase (Phase 8).
+// Le bouton 🔊 reste visible mais affiche un message discret en cas d'appel.
 
 interface TerraceCardProps {
   terrace: Terrace;
@@ -12,6 +14,7 @@ interface TerraceCardProps {
 
 const TerraceCard: React.FC<TerraceCardProps> = ({ terrace, isFavorite, onToggleFavorite }) => {
   const [copied, setCopied] = useState(false);
+  const [ttsUnavailable, setTtsUnavailable] = useState(false);
 
   const handleShare = async () => {
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${terrace.coordinates.lat},${terrace.coordinates.lng}`;
@@ -46,8 +49,16 @@ const TerraceCard: React.FC<TerraceCardProps> = ({ terrace, isFavorite, onToggle
     }
   };
 
-  const handleSpeech = () => {
-    gemini.speakDescription(`${terrace.name} est situé au ${terrace.address}. C'est un ${terrace.type} avec ${terrace.sunExposure}% d'ensoleillement.`);
+  const handleSpeech = async () => {
+    try {
+      await gemini.speakDescription(
+        `${terrace.name} est situé au ${terrace.address}. C'est un ${terrace.type} avec ${terrace.sunExposure}% d'ensoleillement.`
+      );
+    } catch {
+      // TTS désactivé — signale visuellement pendant 2 s
+      setTtsUnavailable(true);
+      setTimeout(() => setTtsUnavailable(false), 2000);
+    }
   };
 
   return (
@@ -106,10 +117,14 @@ const TerraceCard: React.FC<TerraceCardProps> = ({ terrace, isFavorite, onToggle
           </button>
           <button
             onClick={handleSpeech}
-            className="w-12 h-10 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl flex items-center justify-center transition-colors"
-            title="Écouter la description"
+            className={`w-12 h-10 rounded-xl flex items-center justify-center transition-colors ${
+              ttsUnavailable
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+            }`}
+            title={ttsUnavailable ? 'Audio indisponible (migration en cours)' : 'Écouter la description'}
           >
-            <i className="fas fa-volume-up"></i>
+            <i className={`fas ${ttsUnavailable ? 'fa-volume-xmark' : 'fa-volume-up'}`}></i>
           </button>
           <button
             onClick={handleShare}

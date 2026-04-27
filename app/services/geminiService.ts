@@ -1,11 +1,8 @@
-import { getApp } from 'firebase/app';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { GoogleGenAI, Modality, Type } from '@google/genai';
 import { EstablishmentType, SunLevel, Terrace, UserPreferences } from '../types';
 import { searchTerraces } from './searchService';
 import { dbService } from './dbService';
-
-const REGION = 'europe-west1';
+import { fetchLiveToken } from './liveTokenService';
 
 export interface LiveAssistantContext {
   terraces: Terrace[];
@@ -23,10 +20,6 @@ export interface LiveAssistantCallbacks {
 }
 
 export class GeminiService {
-  private fns() {
-    return getFunctions(getApp(), REGION);
-  }
-
   async findTerraces(
     location: string,
     type: EstablishmentType,
@@ -54,21 +47,18 @@ export class GeminiService {
     }));
   }
 
-  async speakDescription(text: string) {
-    try {
-      const ttsFn = httpsCallable(this.fns(), 'geminiTts');
-      const result = await ttsFn({ text });
-      const { audio } = result.data as { audio: string | null };
-      if (audio) this.playRawAudio(audio);
-    } catch (e: any) {
-      console.error('TTS Error:', e?.message);
-    }
+  // TTS désactivé pendant la migration Supabase — la Cloud Function geminiTts
+  // ne sera pas portée sur Edge Function. Le bouton 🔊 dans TerraceCard catche
+  // cette erreur et l'affiche discrètement.
+  async speakDescription(_text: string): Promise<null> {
+    throw new Error('TTS désactivé pendant la migration Supabase.');
   }
 
   async connectLiveAssistant(callbacks: LiveAssistantCallbacks, context: LiveAssistantContext) {
-    const tokenFn = httpsCallable(this.fns(), 'geminiLiveToken');
-    const result = await tokenFn({});
-    const { apiKey } = result.data as { apiKey: string };
+    const session = (await dbService.getAuth()?.getSession())?.data.session;
+    const jwt = session?.access_token;
+    if (!jwt) throw new Error('Connexion requise.');
+    const { apiKey } = await fetchLiveToken(jwt);
 
     const ai = new GoogleGenAI({ apiKey });
 
@@ -129,8 +119,8 @@ RÈGLES :
       },
     ];
 
-    let session: any = null;
-    session = await ai.live.connect({
+    let liveSession: any = null;
+    liveSession = await ai.live.connect({
       model: 'gemini-2.5-flash-native-audio-preview-09-2025',
       callbacks: {
         onopen: callbacks.onopen,
@@ -167,13 +157,13 @@ RÈGLES :
                           .map((t) => `${t.name} (${t.sunExposure}% soleil, ${t.address})`)
                           .join(' ; ');
 
-                  session.sendToolResponse({
+                  liveSession.sendToolResponse({
                     functionResponses: [
                       { id: fc.id, name: fc.name, response: { result: summary } },
                     ],
                   });
                 } catch (e: any) {
-                  session.sendToolResponse({
+                  liveSession.sendToolResponse({
                     functionResponses: [
                       {
                         id: fc.id,
@@ -198,26 +188,7 @@ RÈGLES :
       },
     });
 
-    return session;
-  }
-
-  private async playRawAudio(base64: string) {
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const dataInt16 = new Int16Array(bytes.buffer);
-      const buffer = ctx.createBuffer(1, dataInt16.length, 24000);
-      const channelData = buffer.getChannelData(0);
-      for (let i = 0; i < dataInt16.length; i++) channelData[i] = dataInt16[i] / 32768.0;
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.start();
-    } catch (e) {
-      console.error('Erreur lecture audio');
-    }
+    return liveSession;
   }
 }
 
