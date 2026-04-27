@@ -2,6 +2,75 @@
 
 Ce fichier est le point de reprise partagé entre les 3 PCs. Il vit dans le repo et suit via `git pull`.
 
+## 📍 État du projet — 2026-04-27 fin de journée (Phase 7 en cours)
+
+**Migration Firebase → Supabase : Phases 0-6 ✅ terminées. Phase 7 (smoke test + cutover) en cours.**
+
+- Spec : [`docs/superpowers/specs/2026-04-27-migration-firebase-supabase-design.md`](docs/superpowers/specs/2026-04-27-migration-firebase-supabase-design.md)
+- Plan : [`docs/superpowers/plans/2026-04-27-migration-firebase-supabase.md`](docs/superpowers/plans/2026-04-27-migration-firebase-supabase.md)
+- Repo infra : https://github.com/SteF69Lyon/terrasses-supabase-stack
+
+### Ce qui marche
+- Stack Supabase opérationnelle sur `https://api.terrasse-au-soleil.fr` (VPS Hostinger 195.35.29.52, container project `terrasses`)
+- 13 services Up : Postgres + GoTrue + PostgREST + Realtime + Storage + Edge Runtime + Studio + Kong + Vector + Analytics + Meta + ImgProxy + Pooler
+- 3 tables (`profiles`, `ads`, `osm_cache`) + RLS policies + tests RLS verts
+- 2 Edge Functions : `search-terraces` (OSM Overpass + AI router multi-provider Claude/OpenAI/Gemini) et `live-token` (auth-gated Gemini Live API)
+- Cron backup quotidien 03:00 UTC vers Scaleway via rclone+GPG
+- Front sur branche `feat/supabase-migration` (6 commits, build passe clean) :
+  - `dbService.ts` : Auth + Profiles + Ads + Realtime sur Supabase
+  - `searchService.ts` + `liveTokenService.ts` : appels Edge Functions
+  - `geminiService.ts` : zéro Firebase, TTS proprement coupé (UI affiche "Audio indisponible")
+  - `firebase` reste en dépendance npm jusqu'à Phase 9 (filet de sécurité)
+  - Branche poussée sur GitHub : https://github.com/SteF69Lyon/Terrasses-au-soleil/tree/feat/supabase-migration
+
+### Ce qui bloque actuellement (à reprendre ce soir)
+
+1. **Bug `sunExposure: null` sur tous les résultats de recherche** — quand on met le slider d'ensoleillement > 0, plus aucun résultat n'apparaît. Cause probable : le LLM renvoie les `id` au format différent de ce qu'on envoie (number vs string), ou il hedge trop avec `null`. **Patch debug poussé sur le repo infra** (commit `fc7c1cf` : `debug(search-terraces): log LLM response + tolerate id as number/string in match`). À tester en relançant la stack VPS et en lisant les logs container.
+
+2. **WebSocket Realtime échoue** (`wss://api.terrasse-au-soleil.fr/realtime/v1/websocket`) — Traefik n'upgrade probablement pas vers WS. N'affecte que le refresh temps réel des `ads` admin, pas la recherche. À fixer après le bug #1.
+
+3. **`.env.local` doit être copié à la bonne place** sur chaque PC : Vite tourne depuis `app/`, donc `.env.local` doit être dans `app/.env.local` (et NON pas à la racine). Voir section "Reprise rapide" plus bas.
+
+### Pour reprendre (suite de Phase 7)
+
+Sur le VPS :
+```bash
+ssh root@195.35.29.52
+cd /opt/terrasses-supabase && git pull --ff-only
+docker restart terrasses-supabase-functions
+sleep 3
+
+ANON=$(grep ^ANON_KEY= /opt/terrasses-supabase/upstream-supabase/docker/.env | cut -d= -f2-)
+curl -s -X POST "https://api.terrasse-au-soleil.fr/functions/v1/search-terraces" \
+  -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+  -H "Content-Type: application/json" \
+  -d '{"location":"Lyon","type":"bar","date":"2026-04-30","time":"18:00"}' \
+  | python3 -c "import sys, json; d=json.load(sys.stdin); print(f'{len(d[\"results\"])} results'); print(json.dumps([{k: r[k] for k in (\"name\",\"sunExposure\",\"description\")} for r in d['results'][:3]], indent=2, ensure_ascii=False))"
+
+echo
+docker logs --tail=30 terrasses-supabase-functions 2>&1 | grep -i "search-terraces"
+```
+
+Coller ces sorties à Claude pour qu'il diagnostique (les logs incluent maintenant la réponse LLM brute + un compte des IDs matchés).
+
+Une fois le bug fixé :
+- Re-lancer `npm run dev` côté front, valider la golden path (register + search + admin ads + live)
+- Ouvrir Studio (tunnel `ssh -L 3010:127.0.0.1:3010 root@195.35.29.52` puis `http://127.0.0.1:3010`) et créer le compte admin `sflandrin@outlook.com` (Authentication → Add User + Auto Confirm) + insérer la ligne `profiles` correspondante
+- Configurer les vars Hostinger panel (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)
+- Merge `feat/supabase-migration` → `main`, push → Hostinger redéploie en prod
+- 7 jours d'observation puis Phase 8 (suppression Cloud Functions Firebase + durcissement règles Firestore)
+
+### Crédentiels et URLs utiles
+
+- VPS : `ssh root@195.35.29.52`
+- API publique : `https://api.terrasse-au-soleil.fr`
+- ANON_KEY (publique, à mettre dans `.env.local` du front) :
+  ```
+  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc3MjgxMTQwLCJleHAiOjIwOTI2NDExNDB9.3EcrcApo_E4UhTGwr_JsFn9k-pp4Ei88reTOPIszURU
+  ```
+- Stack VPS : `/opt/terrasses-supabase/upstream-supabase/docker/` (compose), `/opt/terrasses-supabase/.env` n'existe pas — le vrai `.env` est dans `upstream-supabase/docker/.env`
+- Studio (via tunnel SSH) : `http://127.0.0.1:3010`, login = `admin` + `DASHBOARD_PASSWORD` du `.env`
+
 ---
 
 ## ⚡ MIGRATION FIREBASE → SUPABASE EN COURS (Phase 7)
@@ -30,15 +99,32 @@ Repo infra : https://github.com/SteF69Lyon/terrasses-supabase-stack
 
 ## 🚀 Reprise rapide (workflow normal pré-migration)
 
-### Sur un PC déjà setup
+### Sur un PC déjà setup (pour la migration en cours, checkout la branche)
 
 ```bash
 cd /c/dev/terrasses-au-soleil
-git pull origin main
+git fetch
+git checkout feat/supabase-migration   # ⚠️ migration en cours, pas main
+git pull origin feat/supabase-migration
 npm install              # deps racine (Astro)
-cd app && npm install    # deps SPA
-cd .. && cd functions && npm install    # deps Cloud Functions
+cd app && npm install    # deps SPA (inclut @supabase/supabase-js)
+
+# IMPORTANT : compléter app/.env.local avec les 2 vars Supabase
+# (ouvre le fichier et ajoute les lignes si elles manquent)
+cat >> app/.env.local << 'EOF'
+VITE_SUPABASE_URL=https://api.terrasse-au-soleil.fr
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc3MjgxMTQwLCJleHAiOjIwOTI2NDExNDB9.3EcrcApo_E4UhTGwr_JsFn9k-pp4Ei88reTOPIszURU
+EOF
+
+# Vérifier que les 3 vars sont présentes (en évitant les doublons)
+cat app/.env.local
+
+# Si VITE_ADMIN_EMAIL manquait, ajoute-la aussi :
+# echo "VITE_ADMIN_EMAIL=sflandrin@outlook.com" >> app/.env.local
 ```
+
+Quand tu redonnes la main à Claude Code, dis-lui :
+> *"Reprends le travail, lis HANDOFF.md, on était en Phase 7 sur le bug `sunExposure: null` côté search-terraces, j'ai fait git pull, à toi de me guider la suite"*
 
 ### Sur un nouveau PC (setup complet)
 

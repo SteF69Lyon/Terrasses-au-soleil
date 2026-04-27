@@ -71,8 +71,8 @@ const App: React.FC = () => {
   useEffect(() => {
     const unsubscribe = dbService.onAuthChange(async (user) => {
       if (user) {
-        setCurrentUserUid(user.uid);
-        const p = await dbService.fetchProfileByUid(user.uid);
+        setCurrentUserUid(user.id);
+        const p = await dbService.fetchProfileByUid(user.id);
         if (p) {
           setProfile(p);
           setPreferences(prev => ({

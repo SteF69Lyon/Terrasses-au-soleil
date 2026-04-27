@@ -23,8 +23,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, favoriteTerraces, 
   const [shake, setShake] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
 
-  const currentUser = dbService.getAuth().currentUser;
-  const isLogged = !!currentUser;
+  const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
+  const isLogged = !!currentUserId;
+
+  React.useEffect(() => {
+    dbService.getSupabase()?.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id ?? null);
+    });
+  }, []);
 
   // Initialize name: if logged, use profile name. If not, empty string (don't pre-fill "Login")
   const [name, setName] = useState(isLogged ? profile.name : '');
@@ -65,8 +71,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, favoriteTerraces, 
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
-    
+    if (!currentUserId) return;
+
     setIsBusy(true);
     setError(null);
     const updated: UserProfile = {
@@ -77,7 +83,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, favoriteTerraces, 
       preferredSunLevel
     };
     try {
-      await dbService.updateProfile(currentUser.uid, updated);
+      await dbService.updateProfile(currentUserId, updated);
       onSave(updated);
       onClose();
     } catch (err: any) {
@@ -89,11 +95,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, favoriteTerraces, 
   };
 
   const handleSubscriptionSuccess = async () => {
-    if (!currentUser) return;
+    if (!currentUserId) return;
     setShowCheckout(false);
     setIsBusy(true);
     try {
-      await dbService.setSubscriptionStatus(currentUser.uid, true);
+      await dbService.setSubscriptionStatus(currentUserId, true);
       onSave({ ...profile, isSubscribed: true });
     } catch (err) {
       console.error(err);
