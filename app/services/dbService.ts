@@ -145,11 +145,61 @@ class DatabaseService {
     return email?.toLowerCase().trim() === ADMIN_EMAIL;
   }
 
-  // --- ads (à compléter Task 22) ---
-  onAdsChange(_callback: (ads: Advertisement[]) => void) { return () => {}; }
-  async addAd(_text: string, _link?: string): Promise<void> {}
-  async deleteAd(_id: string): Promise<void> {}
-  async toggleAdStatus(_id: string, _currentStatus: boolean): Promise<void> {}
+  onAdsChange(callback: (ads: Advertisement[]) => void) {
+    if (!this.supabase) return () => {};
+
+    // Helper : recharger la liste complète depuis la DB
+    const refresh = async () => {
+      const { data } = await this.supabase!
+        .from('ads')
+        .select('id, text, link, is_active, created_at')
+        .order('created_at', { ascending: false });
+      const ads: Advertisement[] = (data ?? []).map((row) => ({
+        id: row.id,
+        text: row.text,
+        link: row.link ?? undefined,
+        isActive: row.is_active,
+        createdAt: new Date(row.created_at).getTime(),
+      }));
+      callback(ads);
+    };
+
+    // Charge initiale
+    refresh();
+
+    // Realtime channel — n'importe quel changement → refresh
+    const channel = this.supabase
+      .channel('ads-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ads' }, (_payload: any) => refresh())
+      .subscribe();
+
+    return () => {
+      this.supabase!.removeChannel(channel);
+    };
+  }
+
+  async addAd(text: string, link?: string): Promise<void> {
+    if (!this.supabase) return;
+    const { error } = await this.supabase
+      .from('ads')
+      .insert({ text, link: link || null, is_active: true });
+    if (error) throw new Error(error.message);
+  }
+
+  async deleteAd(id: string): Promise<void> {
+    if (!this.supabase) return;
+    const { error } = await this.supabase.from('ads').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+  }
+
+  async toggleAdStatus(id: string, currentStatus: boolean): Promise<void> {
+    if (!this.supabase) return;
+    const { error } = await this.supabase
+      .from('ads')
+      .update({ is_active: !currentStatus })
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+  }
 
   getSupabase() { return this.supabase; }
   getAuth() { return this.supabase?.auth; }  // back-compat avec l'ancienne API
