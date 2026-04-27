@@ -20,11 +20,11 @@ export interface Props {
 }
 
 const { city, variation, title, h1, filter } = Astro.props;
-const data = await buildPageData(city, null);
+const data = await buildPageData(city, null, variation);
 const filtered = data.establishments.filter(filter);
 
 const pageTitle = `${title} — Terrasses au soleil`;
-const pageDesc = `${h1}. ${filtered.length} adresses sélectionnées avec analyse d'ensoleillement.`;
+const pageDesc = `${h1} : ${filtered.length} adresses avec score d'ensoleillement précis (calcul NOAA + ombres OSM).`;
 const canonical = absoluteUrl(variationUrl(variation, city.slug));
 
 const crumbs = [
