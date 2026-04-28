@@ -1,0 +1,54 @@
+---
+import Layout from '@/components/Layout.astro';
+import Breadcrumb from '@/components/Breadcrumb.astro';
+import { getCollection, type CollectionEntry } from 'astro:content';
+import { absoluteUrl, SITE } from '@/lib/urls';
+import { breadcrumbList, webPage } from '@/lib/jsonld';
+
+const posts = ((await getCollection('blog')) as CollectionEntry<'blog'>[]).sort(
+  (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
+);
+
+const pageTitle = 'Blog — Terrasses au soleil';
+const pageDesc =
+  "Conseils pratiques, guides et explications techniques pour profiter au mieux des terrasses ensoleillées en France.";
+const canonical = absoluteUrl('/blog/');
+
+const crumbs = [
+  { name: 'Accueil', url: SITE + '/' },
+  { name: 'Blog', url: canonical },
+];
+
+const jsonld = [
+  breadcrumbList(crumbs),
+  webPage({ name: pageTitle, description: pageDesc, url: canonical }),
+];
+
+const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+  <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
+  <h1>Le blog</h1>
+  <p>
+    Conseils pratiques, guides et explications techniques pour profiter au
+    mieux des terrasses ensoleillées en France. Tout est rédigé pour vous
+    aider à choisir la bonne terrasse au bon moment.
+  </p>
+
+  <section class="blog-list">
+    {posts.map((post) => (
+      <article class="blog-card">
+        <h2><a href={`/blog/${post.id}/`}>{post.data.title}</a></h2>
+        <time datetime={post.data.pubDate.toISOString()}>
+          {dateFormatter.format(post.data.pubDate)}
+        </time>
+        <p>{post.data.description}</p>
+        <a class="read-more" href={`/blog/${post.id}/`}>Lire l'article →</a>
+      </article>
+    ))}
+  </section>
+</Layout>
