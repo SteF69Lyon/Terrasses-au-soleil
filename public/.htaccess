@@ -1,0 +1,29 @@
+# Apache / Litespeed config — Hostinger shared hosting
+# Force https + non-www canonical to kill duplicate URLs (Google "page en double")
+
+RewriteEngine On
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Redirect www → non-www
+RewriteCond %{HTTP_HOST} ^www\.terrasse-au-soleil\.fr$ [NC]
+RewriteRule ^(.*)$ https://terrasse-au-soleil.fr/$1 [L,R=301]
+
+# Cache long pour les assets statiques (PNG, OG cards, fonts, JS bundle)
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType font/woff2 "access plus 30 days"
+  ExpiresByType image/x-icon "access plus 30 days"
+</IfModule>
+
+# Compression (gzip / brotli si dispo)
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml application/xml
+</IfModule>
