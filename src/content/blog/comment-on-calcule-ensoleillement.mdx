@@ -1,0 +1,106 @@
+---
+title: "Comment on calcule l'ensoleillement d'une terrasse (algorithme NOAA + OSM)"
+description: "Plongée technique dans le calcul de score solaire qui alimente Terrasses-au-soleil : position du soleil par NOAA, ombres portées par les bâtiments OpenStreetMap, et météo réelle."
+pubDate: 2026-04-28
+keywords:
+  - calcul ensoleillement
+  - position soleil NOAA
+  - algorithme ombre bâtiment
+  - openstreetmap soleil
+  - score solaire
+relatedCities:
+  - paris
+  - lyon
+---
+
+La plupart des sites listant des « terrasses ensoleillées » se contentent d'un avis subjectif d'auteur. Notre approche est différente : chaque adresse reçoit un **score solaire calculé géométriquement**. Voici comment ça marche, sans secret.
+
+## Étape 1 : la position du soleil dans le ciel
+
+Le soleil n'est pas à un endroit fixe. À chaque instant et à chaque point du globe, il a une **altitude** (hauteur au-dessus de l'horizon, en degrés) et un **azimut** (orientation cardinale, 0° = nord, 90° = est, 180° = sud, 270° = ouest).
+
+Le calcul exact de ces deux angles à partir de la latitude, longitude, date et heure est donné par les **équations astronomiques de NOAA** (la NASA américaine). Implémentation classique : la bibliothèque [SunCalc](https://github.com/mourner/suncalc), qu'on utilise.
+
+Concrètement, à Lyon (45.76°N, 4.84°E), le 28 avril à 14h :
+
+- Altitude solaire : **52°**
+- Azimut solaire : **189°** (presque plein sud, légèrement vers le sud-ouest)
+
+C'est le « soleil théorique » : où il devrait être par ciel parfaitement dégagé.
+
+## Étape 2 : l'orientation de la terrasse
+
+Pour qu'une terrasse soit au soleil, deux conditions doivent être remplies :
+
+1. Le soleil doit être au-dessus de l'horizon (altitude > 0°).
+2. La terrasse doit faire face au soleil : son orientation doit être dans une fenêtre d'environ ±90° autour de l'azimut solaire.
+
+Une terrasse orientée 180° (plein sud) est parfaitement éclairée si le soleil est à 180° d'azimut. Si le soleil passe à 270° (plein ouest), la même terrasse devient « rasante » et reçoit beaucoup moins de lumière directe.
+
+**Comment on connaît l'orientation d'une terrasse ?** Personne ne la documente explicitement. On la déduit géométriquement : on prend le bâtiment voisin le plus proche du point établissement, et on suppose que la terrasse fait face à l'extérieur du bâtiment. Calcul en quelques lignes de géométrie 2D sur les polygones OpenStreetMap.
+
+## Étape 3 : les ombres portées par les bâtiments voisins
+
+C'est le calcul le plus subtil. Une terrasse parfaitement orientée plein sud à 14h peut être à l'ombre si un immeuble haut se trouve juste au sud.
+
+L'algorithme :
+
+1. Pour chaque bâtiment voisin (rayon de 200m autour du point), on extrait son polygone et sa hauteur (champ `height` ou estimation à partir du nombre d'étages dans OpenStreetMap).
+2. On projette ce polygone selon l'azimut solaire pour obtenir son **ombre portée** au sol.
+3. On vérifie si le point établissement tombe dans une de ces ombres.
+4. Si oui, score solaire = 0 (peu importe l'orientation théorique).
+
+Code TypeScript simplifié :
+
+```ts
+function isShadowed(point, buildings, azimuth, altitude) {
+  for (const b of buildings) {
+    const shadowLength = b.height / Math.tan(altitude * Math.PI / 180);
+    const shadowPoly = projectPolygon(b.polygon, azimuth, shadowLength);
+    if (pointInPolygon(point, shadowPoly)) return true;
+  }
+  return false;
+}
+```
+
+## Étape 4 : la météo réelle
+
+Le soleil peut être théoriquement présent, mais caché par les nuages. On interroge l'API gratuite **Open-Meteo** pour récupérer la couverture nuageuse à l'heure exacte voulue. Couverture > 80% = score sévèrement pénalisé.
+
+C'est cette étape qui distingue le score « SEO » (calculé pour une date de référence en été) du score « live » (recalculé à chaque visite de la SPA, avec la météo de l'instant).
+
+## Le score final
+
+C'est une combinaison pondérée :
+
+- **Position du soleil** (altitude > 0°, azimut compatible avec orientation) : **40%**
+- **Pas d'ombre portée par les bâtiments** : **30%**
+- **Météo dégagée** : **20%**
+- **Bonus terrasse explicitement signalée comme ensoleillée dans OSM** : **10%**
+
+Score final entre 0 et 100. En pratique :
+
+- 80+ = très ensoleillée à l'heure choisie
+- 50-80 = mi-ombre / partiellement ensoleillée
+- < 50 = à l'ombre
+
+## Les limites honnêtes
+
+Trois choses qu'on ne sait pas (encore) gérer :
+
+1. **Les stores-bannes déployés**, qui peuvent transformer une terrasse parfaitement notée en terrasse ombragée. C'est imprévisible (dépend du gérant).
+2. **La hauteur exacte des bâtiments** : OpenStreetMap a la hauteur pour ~30% des bâtiments en France. Pour les autres, on estime à partir du nombre d'étages, ce qui peut être faux à ±30%.
+3. **Les arbres** : un platane dense bloque énormément le soleil. Les arbres ne sont pas modélisés dans notre algorithme.
+
+Malgré ces limites, le score donne un classement utile : il filtre les ~70% de terrasses « jamais au soleil à 18h » dont on ne perd plus de temps à parler.
+
+## Tester l'algorithme
+
+Le score est utilisé sur toutes nos pages de villes. Quelques exemples :
+
+- [Terrasses ensoleillées à Paris](/terrasses/paris/)
+- [Terrasses ensoleillées à Lyon](/terrasses/lyon/)
+
+Le code source du calcul est dans `src/lib/sun.ts` et `src/lib/buildings.ts`. Si vous êtes développeur et voulez le réutiliser, le projet est en JavaScript/TypeScript et utilise SunCalc + Turf.js + un fetch direct sur Overpass API pour OSM.
+
+Pour l'utiliser interactivement (heure du jour, météo réelle, votre position) : la [recherche live](/app/) recalcule le score à la volée pour chaque adresse.

@@ -3,6 +3,7 @@ import Layout from '@/components/Layout.astro';
 import { CITIES } from '@/data/cities';
 import { villeUrl, quartierUrl, variationUrl, absoluteUrl } from '@/lib/urls';
 import { webPage } from '@/lib/jsonld';
+import { getCollection, type CollectionEntry } from 'astro:content';
 
 const pageTitle = 'Terrasses au soleil — trouvez la meilleure terrasse ensoleillée en France';
 const pageDesc = 'Trouvez les terrasses ensoleillées près de chez vous. Analyse d\'exposition au soleil, carte, et recherche en temps réel assistée par IA.';
@@ -14,6 +15,11 @@ const jsonld = [webPage({ name: pageTitle, description: pageDesc, url: canonical
 const allQuartiers = CITIES.flatMap((c) =>
   c.quartiers.map((q) => ({ ville: c.name, villeSlug: c.slug, quartier: q.name, quartierSlug: q.slug })),
 );
+
+// Latest 4 blog posts for homepage teaser.
+const latestPosts = ((await getCollection('blog')) as CollectionEntry<'blog'>[])
+  .sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime())
+  .slice(0, 4);
 ---
 <Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
   <h1>Trouvez la terrasse parfaite, au soleil</h1>
@@ -53,6 +59,16 @@ const allQuartiers = CITIES.flatMap((c) =>
         <a href={variationUrl('restaurant', c.slug)}>Restaurants terrasse à {c.name}</a>,
       ])}
     </nav>
+  </section>
+
+  <section>
+    <h2>Conseils & guides</h2>
+    <ul class="see-also-list">
+      {latestPosts.map((p) => (
+        <li><a href={`/blog/${p.id}/`}>{p.data.title}</a></li>
+      ))}
+      <li><a href="/blog/"><strong>Tous les articles →</strong></a></li>
+    </ul>
   </section>
 
   <section>

@@ -1,0 +1,120 @@
+---
+import Layout from '@/components/Layout.astro';
+import Breadcrumb from '@/components/Breadcrumb.astro';
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import { CITIES } from '@/data/cities';
+import { absoluteUrl, SITE, villeUrl, variationUrl, type VariationType } from '@/lib/urls';
+import { breadcrumbList, webPage } from '@/lib/jsonld';
+
+type BlogEntry = CollectionEntry<'blog'>;
+
+export async function getStaticPaths() {
+  const posts = (await getCollection('blog')) as BlogEntry[];
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props as { post: BlogEntry };
+const { Content } = await render(post);
+
+const canonical = absoluteUrl(`/blog/${post.id}/`);
+const pageTitle = `${post.data.title} — Terrasses au soleil`;
+
+const crumbs = [
+  { name: 'Accueil', url: SITE + '/' },
+  { name: 'Blog', url: SITE + '/blog/' },
+  { name: post.data.title, url: canonical },
+];
+
+const articleLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: post.data.pubDate.toISOString(),
+  ...(post.data.updatedDate ? { dateModified: post.data.updatedDate.toISOString() } : {}),
+  author: { '@type': 'Organization', name: 'Terrasses au soleil' },
+  publisher: { '@type': 'Organization', name: 'Terrasses au soleil' },
+  mainEntityOfPage: canonical,
+  keywords: post.data.keywords.join(', '),
+};
+
+const jsonld = [
+  breadcrumbList(crumbs),
+  webPage({ name: pageTitle, description: post.data.description, url: canonical }),
+  articleLd,
+];
+
+const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+
+// Related cities — keep only those that exist in CITIES.
+const relatedCitySlugs = (post.data.relatedCities ?? []) as string[];
+const relatedCities = relatedCitySlugs
+  .map((slug: string) => CITIES.find((c) => c.slug === slug))
+  .filter((c): c is (typeof CITIES)[number] => Boolean(c));
+
+const variation = post.data.relatedVariation as VariationType | undefined;
+
+// Other posts (sorted, excluding current).
+const allPosts = ((await getCollection('blog')) as BlogEntry[])
+  .filter((p) => p.id !== post.id)
+  .sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime())
+  .slice(0, 4);
+---
+<Layout
+  title={pageTitle}
+  description={post.data.description}
+  canonical={canonical}
+  jsonld={jsonld}
+>
+  <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
+  <article class="blog-article">
+    <h1>{post.data.title}</h1>
+    <p class="blog-meta">
+      <time datetime={post.data.pubDate.toISOString()}>
+        {dateFormatter.format(post.data.pubDate)}
+      </time>
+    </p>
+    <div class="blog-body">
+      <Content />
+    </div>
+  </article>
+
+  {relatedCities.length > 0 && (
+    <section class="see-also">
+      <h2>Explorer dans nos villes</h2>
+      <ul class="see-also-list">
+        {relatedCities.map((c) => (
+          <li>
+            <a href={variation ? variationUrl(variation, c.slug) : villeUrl(c.slug)}>
+              {variation === 'bar' && `Bars ensoleillés à ${c.name}`}
+              {variation === 'cafe' && `Cafés avec terrasse à ${c.name}`}
+              {variation === 'restaurant' && `Restaurants avec terrasse à ${c.name}`}
+              {variation === 'verre' && `Où boire un verre au soleil à ${c.name}`}
+              {!variation && `Terrasses ensoleillées à ${c.name}`}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  <a class="cta" href="/app/">Lancer la recherche en temps réel →</a>
+
+  {allPosts.length > 0 && (
+    <section class="see-also">
+      <h2>Continuer la lecture</h2>
+      <ul class="see-also-list">
+        {allPosts.map((p) => (
+          <li><a href={`/blog/${p.id}/`}>{p.data.title}</a></li>
+        ))}
+      </ul>
+    </section>
+  )}
+</Layout>
