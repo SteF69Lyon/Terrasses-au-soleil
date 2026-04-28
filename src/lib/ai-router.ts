@@ -225,33 +225,33 @@ function release(): void {
   if (next) next();
 }
 
-const MAX_RETRIES_PER_PROVIDER = 2;
+const MAX_FULL_PASSES = 2;
 const DEFAULT_RETRY_BACKOFF_MS = 30_000;
 
-/** True if the error is worth retrying (rate limit / transient server). */
-function isRetriable(err: unknown): err is AIProviderError {
+/** Rate-limit / overload — fall through to next provider immediately. */
+function isRateLimited(err: unknown): err is AIProviderError {
   if (!(err instanceof AIProviderError)) return false;
-  if (err.status === undefined) return false;
-  return err.status === 429 || err.status === 529 || (err.status >= 500 && err.status < 600);
+  return err.status === 429 || err.status === 529;
 }
 
-async function callWithRetry(provider: Provider, req: AIRequest): Promise<AIResponse> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt <= MAX_RETRIES_PER_PROVIDER; attempt++) {
-    try {
-      return await provider.call(req);
-    } catch (e) {
-      lastError = e;
-      if (!isRetriable(e) || attempt === MAX_RETRIES_PER_PROVIDER) throw e;
-      const wait = e.retryAfterMs ?? DEFAULT_RETRY_BACKOFF_MS * (attempt + 1);
-      console.warn(
-        `[ai-router] ${provider.id} ${e.status} retriable, sleeping ${Math.round(wait / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES_PER_PROVIDER})`,
-      );
-      await sleep(wait);
-    }
+/** Genuine transient server error — retry the same provider once. */
+function isTransient5xx(err: unknown): err is AIProviderError {
+  if (!(err instanceof AIProviderError)) return false;
+  if (err.status === undefined) return false;
+  if (err.status === 529) return false; // 529 is rate-limit-ish
+  return err.status >= 500 && err.status < 600;
+}
+
+async function callOnceWithMicroRetry(provider: Provider, req: AIRequest): Promise<AIResponse> {
+  // Single retry only for genuine 5xx (not 429 — those bounce to next provider).
+  try {
+    return await provider.call(req);
+  } catch (e) {
+    if (!isTransient5xx(e)) throw e;
+    console.warn(`[ai-router] ${provider.id} ${e.status} transient, retrying once after 2s`);
+    await sleep(2_000);
+    return await provider.call(req);
   }
-  // Unreachable, but TypeScript can't see that.
-  throw lastError;
 }
 
 export async function generate(req: AIRequest): Promise<AIResponse> {
@@ -263,25 +263,59 @@ export async function generate(req: AIRequest): Promise<AIResponse> {
 
   await acquire();
   try {
-    const errors: string[] = [];
-    for (const id of ORDER) {
-      const p = providers[id];
-      if (!p.isAvailable) continue;
-      try {
-        return await callWithRetry(p, req);
-      } catch (e) {
-        const msg = (e as Error).message;
-        console.warn(`[ai-router] ${id} failed: ${msg}`);
-        errors.push(`${id}: ${msg}`);
+    let lastErrors: string[] = [];
+    let waitMsForNextPass = 0;
+
+    for (let pass = 0; pass < MAX_FULL_PASSES; pass++) {
+      // Backoff between full passes, only when all providers were rate-limited.
+      if (pass > 0 && waitMsForNextPass > 0) {
+        console.warn(
+          `[ai-router] all providers rate-limited, sleeping ${Math.round(waitMsForNextPass / 1000)}s before pass ${pass + 1}/${MAX_FULL_PASSES}`,
+        );
+        await sleep(waitMsForNextPass);
       }
+
+      const passErrors: string[] = [];
+      let maxRetryAfterMs = 0;
+      let everySingleFailureIsRateLimit = true;
+
+      for (const id of ORDER) {
+        const p = providers[id];
+        if (!p.isAvailable) continue;
+        try {
+          return await callOnceWithMicroRetry(p, req);
+        } catch (e) {
+          const err = e as AIProviderError;
+          const msg = (e as Error).message;
+          console.warn(`[ai-router] ${id} failed: ${msg}`);
+          passErrors.push(`${id}: ${msg}`);
+          if (isRateLimited(err)) {
+            if (err.retryAfterMs && err.retryAfterMs > maxRetryAfterMs) {
+              maxRetryAfterMs = err.retryAfterMs;
+            }
+          } else {
+            everySingleFailureIsRateLimit = false;
+          }
+        }
+      }
+
+      lastErrors = passErrors;
+
+      // If no provider was even available, fail fast — retrying won't help.
+      if (passErrors.length === 0) {
+        throw new Error(
+          'No AI provider configured. Set at least one of ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_BUILD_KEY.',
+        );
+      }
+
+      // Only retry the whole chain if the failures were all rate-limits.
+      // If any provider returned 4xx auth/badreq, more passes won't help.
+      if (!everySingleFailureIsRateLimit) break;
+
+      waitMsForNextPass = maxRetryAfterMs > 0 ? maxRetryAfterMs : DEFAULT_RETRY_BACKOFF_MS;
     }
 
-    if (errors.length === 0) {
-      throw new Error(
-        'No AI provider configured. Set at least one of ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_BUILD_KEY.',
-      );
-    }
-    throw new Error(`All AI providers failed. Tried: ${errors.join(' · ')}`);
+    throw new Error(`All AI providers failed. Tried: ${lastErrors.join(' · ')}`);
   } finally {
     release();
   }
