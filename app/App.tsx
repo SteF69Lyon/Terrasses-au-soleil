@@ -1,11 +1,15 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { EstablishmentType, Terrace, UserPreferences, SunLevel, UserProfile } from './types';
 import { gemini } from './services/geminiService';
 import { dbService } from './services/dbService';
 import TerraceCard from './components/TerraceCard';
-import SearchAssistant from './components/SearchAssistant';
-import ProfileModal from './components/ProfileModal';
 import AdBanner from './components/AdBanner';
+
+// Lazy chunks — these only load when the user opens the modal/voice assistant.
+// SearchAssistant pulls @google/genai (~150 kB), ProfileModal pulls
+// StripeSimulation + AdManager. Keeping them out of first paint cuts ~250 kB.
+const SearchAssistant = lazy(() => import('./components/SearchAssistant'));
+const ProfileModal = lazy(() => import('./components/ProfileModal'));
 
 const App: React.FC = () => {
   const [terraces, setTerraces] = useState<Terrace[]>([]);
@@ -405,21 +409,25 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <SearchAssistant
-        terraces={filteredTerraces}
-        preferences={preferences}
-        locationHint={searchQuery}
-        displayDateLabel={displayDateLabel}
-        onTerracesUpdated={setTerraces}
-      />
-      {isProfileOpen && (
-        <ProfileModal 
-          profile={profile} 
-          favoriteTerraces={favoriteTerraces}
-          onSave={handleProfileUpdate} 
-          onLogout={handleLogout}
-          onClose={() => setIsProfileOpen(false)} 
+      <Suspense fallback={null}>
+        <SearchAssistant
+          terraces={filteredTerraces}
+          preferences={preferences}
+          locationHint={searchQuery}
+          displayDateLabel={displayDateLabel}
+          onTerracesUpdated={setTerraces}
         />
+      </Suspense>
+      {isProfileOpen && (
+        <Suspense fallback={null}>
+          <ProfileModal
+            profile={profile}
+            favoriteTerraces={favoriteTerraces}
+            onSave={handleProfileUpdate}
+            onLogout={handleLogout}
+            onClose={() => setIsProfileOpen(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

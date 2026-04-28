@@ -1,4 +1,5 @@
-import { GoogleGenAI, Modality, Type } from '@google/genai';
+// @google/genai is dynamic-imported only inside connectLiveAssistant to keep
+// it out of the initial bundle (~150 kB saved on first paint).
 import { EstablishmentType, SunLevel, Terrace, UserPreferences } from '../types';
 import { searchTerraces } from './searchService';
 import { dbService } from './dbService';
@@ -60,6 +61,9 @@ export class GeminiService {
     if (!jwt) throw new Error('Connexion requise.');
     const { apiKey } = await fetchLiveToken(jwt);
 
+    // Dynamic import — @google/genai weighs ~150 kB and is only needed when
+    // the user actually activates the live voice assistant.
+    const { GoogleGenAI, Modality, Type } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey });
 
     const terracesSummary = context.terraces.length === 0
