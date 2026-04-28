@@ -174,6 +174,90 @@ export const CITIES: City[] = [
   { slug: 'angers', name: 'Angers', region: 'Pays de la Loire', quartiers: [] },
   { slug: 'reims', name: 'Reims', region: 'Grand Est', quartiers: [] },
   { slug: 'le-havre', name: 'Le Havre', region: 'Normandie', quartiers: [] },
+
+  // ── Expansion v2 (avr 2026) — 30 villes supplémentaires ──
+  // Top métropoles régionales restantes
+  { slug: 'saint-etienne', name: 'Saint-Étienne', region: 'Auvergne-Rhône-Alpes', quartiers: [] },
+  {
+    slug: 'toulon',
+    name: 'Toulon',
+    region: 'Provence-Alpes-Côte d\'Azur',
+    quartiers: [
+      { slug: 'mourillon', name: 'Le Mourillon', searchHint: 'Le Mourillon, Toulon' },
+    ],
+  },
+  { slug: 'le-mans', name: 'Le Mans', region: 'Pays de la Loire', quartiers: [] },
+  { slug: 'brest', name: 'Brest', region: 'Bretagne', quartiers: [] },
+  { slug: 'limoges', name: 'Limoges', region: 'Nouvelle-Aquitaine', quartiers: [] },
+  { slug: 'amiens', name: 'Amiens', region: 'Hauts-de-France', quartiers: [] },
+  { slug: 'perpignan', name: 'Perpignan', region: 'Occitanie', quartiers: [] },
+  { slug: 'metz', name: 'Metz', region: 'Grand Est', quartiers: [] },
+  { slug: 'besancon', name: 'Besançon', region: 'Bourgogne-Franche-Comté', quartiers: [] },
+  { slug: 'orleans', name: 'Orléans', region: 'Centre-Val de Loire', quartiers: [] },
+  { slug: 'mulhouse', name: 'Mulhouse', region: 'Grand Est', quartiers: [] },
+  { slug: 'caen', name: 'Caen', region: 'Normandie', quartiers: [] },
+  {
+    slug: 'nancy',
+    name: 'Nancy',
+    region: 'Grand Est',
+    quartiers: [
+      { slug: 'place-stanislas', name: 'Place Stanislas', searchHint: 'Place Stanislas, Nancy' },
+    ],
+  },
+  // Villes touristiques (forte recherche "terrasse au soleil")
+  {
+    slug: 'avignon',
+    name: 'Avignon',
+    region: 'Provence-Alpes-Côte d\'Azur',
+    quartiers: [
+      { slug: 'intra-muros', name: 'Intra-muros', searchHint: 'Centre-ville intra-muros, Avignon' },
+    ],
+  },
+  { slug: 'poitiers', name: 'Poitiers', region: 'Nouvelle-Aquitaine', quartiers: [] },
+  { slug: 'pau', name: 'Pau', region: 'Nouvelle-Aquitaine', quartiers: [] },
+  {
+    slug: 'cannes',
+    name: 'Cannes',
+    region: 'Provence-Alpes-Côte d\'Azur',
+    quartiers: [
+      { slug: 'croisette', name: 'La Croisette', searchHint: 'La Croisette, Cannes' },
+      { slug: 'le-suquet', name: 'Le Suquet', searchHint: 'Le Suquet, Cannes' },
+    ],
+  },
+  {
+    slug: 'antibes',
+    name: 'Antibes',
+    region: 'Provence-Alpes-Côte d\'Azur',
+    quartiers: [
+      { slug: 'vieil-antibes', name: 'Vieil Antibes', searchHint: 'Vieil Antibes, Antibes' },
+    ],
+  },
+  {
+    slug: 'bayonne',
+    name: 'Bayonne',
+    region: 'Nouvelle-Aquitaine',
+    quartiers: [
+      { slug: 'grand-bayonne', name: 'Grand Bayonne', searchHint: 'Grand Bayonne, Bayonne' },
+    ],
+  },
+  {
+    slug: 'saint-malo',
+    name: 'Saint-Malo',
+    region: 'Bretagne',
+    quartiers: [
+      { slug: 'intra-muros', name: 'Intra-muros', searchHint: 'Saint-Malo intra-muros' },
+    ],
+  },
+  { slug: 'vannes', name: 'Vannes', region: 'Bretagne', quartiers: [] },
+  { slug: 'quimper', name: 'Quimper', region: 'Bretagne', quartiers: [] },
+  { slug: 'beziers', name: 'Béziers', region: 'Occitanie', quartiers: [] },
+  { slug: 'saint-nazaire', name: 'Saint-Nazaire', region: 'Pays de la Loire', quartiers: [] },
+  { slug: 'ajaccio', name: 'Ajaccio', region: 'Corse', quartiers: [] },
+  { slug: 'honfleur', name: 'Honfleur', region: 'Normandie', quartiers: [] },
+  { slug: 'deauville', name: 'Deauville', region: 'Normandie', quartiers: [] },
+  { slug: 'chamonix', name: 'Chamonix-Mont-Blanc', region: 'Auvergne-Rhône-Alpes', quartiers: [] },
+  { slug: 'saint-tropez', name: 'Saint-Tropez', region: 'Provence-Alpes-Côte d\'Azur', quartiers: [] },
+  { slug: 'carcassonne', name: 'Carcassonne', region: 'Occitanie', quartiers: [] },
 ];
 
 export function findCity(slug: string): City | undefined {
