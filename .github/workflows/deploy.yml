@@ -43,6 +43,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_BUILD_KEY: ${{ secrets.GEMINI_BUILD_KEY }}
+          # ai-router.ts falls back to GEMINI_API_KEY if GEMINI_BUILD_KEY is
+          # invalid/blocked. Pass both so any working key suffices.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PUBLIC_ADSENSE_CLIENT: ${{ secrets.PUBLIC_ADSENSE_CLIENT }}
@@ -71,7 +74,51 @@ jobs:
           [[ "$DIR" != */ ]] && DIR="$DIR/"
           echo "server_dir=$DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy via FTPS to Hostinger
+      # Hostinger FTPS occasionally returns transient 550 "No such file or
+      # directory" mid-upload. Retry the action up to 2 times before failing.
+      - name: Deploy via FTPS to Hostinger (attempt 1)
+        id: deploy1
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./dist/
+          server-dir: ${{ steps.ftp.outputs.server_dir }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+
+      - name: Wait before retry
+        if: steps.deploy1.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy via FTPS to Hostinger (attempt 2)
+        if: steps.deploy1.outcome == 'failure'
+        id: deploy2
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./dist/
+          server-dir: ${{ steps.ftp.outputs.server_dir }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+
+      - name: Wait before final attempt
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 60
+
+      - name: Deploy via FTPS to Hostinger (attempt 3, final)
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
