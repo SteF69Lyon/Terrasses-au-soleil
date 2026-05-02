@@ -317,7 +317,7 @@ npm run build
 
 ### Business / monétisation
 
-- **AdSense** : en attente du courrier de validation Google. Une fois reçu : ajouter `PUBLIC_ADSENSE_CLIENT` en secret GitHub → rebuild → pubs partout (emplacements `<AdSlot>` déjà câblés).
+- **AdSense** : ✅ **activé 2026-05-02**. Compte validé Google, `PUBLIC_ADSENSE_CLIENT=ca-pub-2931993647559356` set en secret GitHub. Le tag `adsbygoogle.js` est injecté automatiquement dans le `<head>` des ~340 pages via `Layout.astro`. Reste à : configurer les unités d'annonce dans le dashboard AdSense, mapper les `slotId` des composants `<AdSlot>` (actuellement placeholders `1111111111`, `2222222222`, `3333333333` dans `CityVariationPage.astro`) vers les vrais slot IDs de ton compte AdSense.
 - **Promotion payante** : champ `promotionScore` dans Postgres, tri pondéré `(promotionScore DESC, sunExposure DESC)`, badge "Partenaire". À conditionner après validation AdSense + premier trafic mesuré.
 
 ### Fix non bloquant
@@ -377,7 +377,7 @@ npm run build
 | `SUPABASE_SERVICE_ROLE_KEY` | Build SEO (cache Postgres, admin) | ✅ |
 | `VITE_SUPABASE_ANON_KEY` | SPA build (client public) | ✅ |
 | `VITE_ADMIN_EMAIL` | SPA build (contrôles admin UI) | ✅ |
-| `PUBLIC_ADSENSE_CLIENT` | Optionnel, vide aujourd'hui | ❌ vide (en attente Google) |
+| `PUBLIC_ADSENSE_CLIENT` | Tag AdSense injecté dans Layout.astro | ✅ `ca-pub-2931993647559356` (2026-05-02) |
 | `FTP_HOST`, `FTP_USERNAME`, `FTP_PASSWORD`, `FTP_SERVER_DIR` | Deploy FTPS Hostinger | ✅ |
 
 ### Arbre
