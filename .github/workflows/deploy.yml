@@ -53,6 +53,20 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
+          # Astro 6 / Vite reads PUBLIC_* env vars through dotenv (.env file)
+          # rather than process.env at build time. We write a transient .env
+          # so PUBLIC_ADSENSE_CLIENT and any future PUBLIC_* secret reach the
+          # static HTML output via import.meta.env.PUBLIC_*.
+          # The .env file lives only inside the GHA runner — never committed.
+          cat > .env <<EOF
+          PUBLIC_ADSENSE_CLIENT=${PUBLIC_ADSENSE_CLIENT}
+          EOF
+          # Mirror PUBLIC_ADSENSE_CLIENT into the SPA env file too, in case a
+          # future SPA component reads it (Vite reads from app/.env at build).
+          mkdir -p app
+          cat > app/.env <<EOF
+          PUBLIC_ADSENSE_CLIENT=${PUBLIC_ADSENSE_CLIENT}
+          EOF
           npm run build:og
           npm run build:app
           npm run build:astro
