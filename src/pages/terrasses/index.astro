@@ -1,0 +1,64 @@
+---
+// Hub statique listant toutes les villes pour lesquelles Terrasses au soleil
+// référence des terrasses ensoleillées. Cible pratique pour le breadcrumb
+// `Accueil > Terrasses > Ville` qui pointait jusque-là vers /terrasses/ →
+// 403 (dossier sans index.html). Aussi 53e page indexable, distincte de la
+// home par son cadrage explicite "liste de villes par région" (vs la home
+// qui pousse la SPA et le contenu éditorial).
+import Layout from '@/components/Layout.astro';
+import Breadcrumb from '@/components/Breadcrumb.astro';
+import { CITIES } from '@/data/cities';
+import { absoluteUrl, villeUrl, SITE } from '@/lib/urls';
+import { breadcrumbList, webPage } from '@/lib/jsonld';
+
+const pageTitle = 'Terrasses ensoleillées en France — toutes les villes';
+const pageDesc = `Liste complète des ${CITIES.length} villes pour lesquelles Terrasses au soleil analyse l'ensoleillement des bars, cafés et restaurants avec terrasse.`;
+const canonical = absoluteUrl('/terrasses/');
+
+const crumbs = [
+  { name: 'Accueil', url: SITE + '/' },
+  { name: 'Terrasses', url: canonical },
+];
+
+const jsonld = [
+  breadcrumbList(crumbs),
+  webPage({ name: pageTitle, description: pageDesc, url: canonical }),
+];
+
+// Group cities by region for an organized hub. Sort alphabetically (FR locale)
+// at both levels so the page is stable across builds.
+const byRegion = new Map<string, typeof CITIES>();
+for (const c of CITIES) {
+  if (!byRegion.has(c.region)) byRegion.set(c.region, []);
+  byRegion.get(c.region)!.push(c);
+}
+const regions = Array.from(byRegion.entries())
+  .map(([region, cities]) => ({
+    region,
+    cities: [...cities].sort((a, b) => a.name.localeCompare(b.name, 'fr')),
+  }))
+  .sort((a, b) => a.region.localeCompare(b.region, 'fr'));
+---
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+  <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
+  <h1>Terrasses ensoleillées en France</h1>
+  <p>
+    Terrasses au soleil recense les bars, cafés et restaurants avec terrasse
+    ensoleillée dans <strong>{CITIES.length} villes françaises</strong>.
+    Sélectionne ta ville pour découvrir les meilleures adresses, leur
+    orientation et leur exposition au soleil heure par heure.
+  </p>
+
+  <a class="cta" href="/app/">Lancer la recherche en temps réel →</a>
+
+  {regions.map(({ region, cities }) => (
+    <section>
+      <h2>{region}</h2>
+      <nav class="related-areas" aria-label={`Villes de ${region}`}>
+        {cities.map((c) => (
+          <a href={villeUrl(c.slug)}>{c.name}</a>
+        ))}
+      </nav>
+    </section>
+  ))}
+</Layout>
