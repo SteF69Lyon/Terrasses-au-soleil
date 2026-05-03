@@ -111,15 +111,21 @@ jobs:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           SERVER_DIR: ${{ steps.ftp.outputs.server_dir }}
+        timeout-minutes: 3
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
           echo "--- Remote root: ${SERVER_DIR} ---"
-          # lftp's `echo` is a real built-in. Each line is one lftp command;
-          # any cls failure on missing dir prints an error and lftp continues.
-          # `set cmd:fail-exit no` keeps lftp from aborting on first error.
-          lftp -u "${FTP_USERNAME},${FTP_PASSWORD}" "ftps://${FTP_HOST}" <<LFTP_EOF || true
+          # Wrap lftp in `timeout` so the step can't hang the workflow even
+          # if the FTPS handshake stalls (Hostinger occasionally does this).
+          # lftp's own net:timeout + max-retries also prevent internal hangs.
+          # `set cmd:fail-exit no` keeps lftp from aborting on a missing dir.
+          timeout 90s lftp -u "${FTP_USERNAME},${FTP_PASSWORD}" "ftps://${FTP_HOST}" <<LFTP_EOF || true
           set ssl:verify-certificate no
           set ftp:ssl-protect-data yes
+          set ftp:passive-mode yes
+          set net:timeout 15
+          set net:max-retries 1
+          set net:reconnect-interval-base 3
           set cmd:fail-exit no
           echo === Top-level of ${SERVER_DIR} ===
           cls -1 ${SERVER_DIR}
@@ -131,6 +137,7 @@ jobs:
           cls -la ${SERVER_DIR}.ftp-deploy-sync-state.json
           bye
           LFTP_EOF
+          echo "--- Diagnostic done ---"
 
       # Hostinger FTPS occasionally returns transient 550 "No such file or
       # directory" mid-upload. Retry the action up to 2 times before failing.
