@@ -53,20 +53,30 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
-          # Astro 6 / Vite reads PUBLIC_* env vars through dotenv (.env file)
-          # rather than process.env at build time. We write a transient .env
-          # so PUBLIC_ADSENSE_CLIENT and any future PUBLIC_* secret reach the
-          # static HTML output via import.meta.env.PUBLIC_*.
-          # The .env file lives only inside the GHA runner — never committed.
+          # Astro 6 / Vite reads PUBLIC_* and VITE_* env vars through dotenv
+          # (.env file) at build time. Writing a transient .env in the runner
+          # is the only reliable way to pass those values to the build —
+          # process.env alone has been observed to be ignored by Vite 6 when
+          # an .env file is present in the same dir (regression introduced in
+          # 473eb28: it fixed Astro's PUBLIC_ADSENSE_CLIENT but broke the SPA's
+          # VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY by shadowing process.env
+          # on the SPA side, producing a bundle that throws "Supabase env vars
+          # manquantes" at runtime). The .env files exist only on the GHA
+          # runner — never committed.
           cat > .env <<EOF
           PUBLIC_ADSENSE_CLIENT=${PUBLIC_ADSENSE_CLIENT}
           EOF
-          # Mirror PUBLIC_ADSENSE_CLIENT into the SPA env file too, in case a
-          # future SPA component reads it (Vite reads from app/.env at build).
           mkdir -p app
           cat > app/.env <<EOF
           PUBLIC_ADSENSE_CLIENT=${PUBLIC_ADSENSE_CLIENT}
+          VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+          VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+          VITE_ADMIN_EMAIL=${VITE_ADMIN_EMAIL}
           EOF
+          # Sanity check that the SPA env file has the keys the bundle expects.
+          # Print only key names (no values) to avoid leaking secrets in logs.
+          echo "--- SPA env keys (app/.env) ---"
+          grep -oE '^[A-Z_]+=' app/.env || true
           npm run build:og
           npm run build:app
           npm run build:astro
@@ -87,6 +97,40 @@ jobs:
           DIR="$RAW_DIR"
           [[ "$DIR" != */ ]] && DIR="$DIR/"
           echo "server_dir=$DIR" >> "$GITHUB_OUTPUT"
+
+      # Diagnostic — what's actually present on the FTP server before upload.
+      # Helps confirm/refute "FTP partial-upload" hypothesis when SEO pages
+      # 404 in prod despite local dist/ having them. Lists top-level + a few
+      # sentinel SEO folders + the FTP-Deploy-Action sync state file size.
+      # Failures inside the lftp script don't fail the job (continue-on-error).
+      - name: Diagnostic — list FTP remote (transient)
+        id: ftp_diag
+        continue-on-error: true
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          SERVER_DIR: ${{ steps.ftp.outputs.server_dir }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+          echo "--- Remote root: ${SERVER_DIR} ---"
+          # lftp's `echo` is a real built-in. Each line is one lftp command;
+          # any cls failure on missing dir prints an error and lftp continues.
+          # `set cmd:fail-exit no` keeps lftp from aborting on first error.
+          lftp -u "${FTP_USERNAME},${FTP_PASSWORD}" "ftps://${FTP_HOST}" <<LFTP_EOF || true
+          set ssl:verify-certificate no
+          set ftp:ssl-protect-data yes
+          set cmd:fail-exit no
+          echo === Top-level of ${SERVER_DIR} ===
+          cls -1 ${SERVER_DIR}
+          echo === terrasses/ should contain ~52 cities ===
+          cls -1 ${SERVER_DIR}terrasses/
+          echo === bar-ensoleille-paris/ should contain index.html ===
+          cls -1 ${SERVER_DIR}bar-ensoleille-paris/
+          echo === sync state file ===
+          cls -la ${SERVER_DIR}.ftp-deploy-sync-state.json
+          bye
+          LFTP_EOF
 
       # Hostinger FTPS occasionally returns transient 550 "No such file or
       # directory" mid-upload. Retry the action up to 2 times before failing.
