@@ -196,3 +196,12 @@ jobs:
             **/.git*
             **/.git*/**
             **/node_modules/**
+
+      # Ping IndexNow with all sitemap URLs after a successful deploy. Reaches
+      # Bing, Yandex, Naver, Seznam directly + serves as a discovery signal
+      # for Google. Never fails the job — if the IndexNow API is down the
+      # deploy still counts as successful.
+      - name: Ping IndexNow (Bing/Yandex/Naver discovery)
+        if: success()
+        continue-on-error: true
+        run: npm run indexnow:ping
