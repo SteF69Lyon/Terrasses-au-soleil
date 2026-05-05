@@ -11,6 +11,11 @@ export default defineConfig({
       filter: (page) => !page.includes('/app/'),
       changefreq: 'monthly',
       priority: 0.7,
+      // <lastmod> sur chaque entrée = date du build. Google voit "sitemap mis
+      // à jour, je dois re-crawler". Sans cette balise, le sitemap est
+      // considéré stable et n'est ré-évalué qu'au rythme par défaut du
+      // crawler (parfois 2-4 semaines).
+      lastmod: new Date(),
     }),
     mdx(),
   ],
