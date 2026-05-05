@@ -9,7 +9,7 @@
     "build:app": "cd app && npm ci && npm run build",
     "build:og": "node scripts/generate-og.mjs",
     "build:merge": "node scripts/merge-dist.mjs",
-    "build": "npm install && npm run build:og && npm run build:app && npm run build:astro && npm run build:merge",
+    "build": "node scripts/guard-build-env.mjs && npm install && npm run build:og && npm run build:app && npm run build:astro && npm run build:merge",
     "indexnow:ping": "node scripts/indexnow-ping.mjs",
     "preview": "astro preview",
     "test": "vitest run",
