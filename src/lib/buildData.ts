@@ -117,7 +117,9 @@ async function getOrGenerateIntro(
   variation?: VariationType,
 ): Promise<string> {
   const db = getDb();
-  const cacheId = variation ? `${pageId}-${variation}` : pageId;
+  // v2 prefix: longer, structured prompt (300-400 words across 4 paragraphs).
+  const baseId = variation ? `${pageId}-${variation}` : pageId;
+  const cacheId = `v2_${baseId}`;
   const cached = await getCached<string>(db, 'pageIntros', cacheId, TTL.INTRO);
   if (cached) return cached;
   const centerLat = (bbox.north + bbox.south) / 2;
@@ -140,7 +142,9 @@ async function getOrGenerateFaq(
   variation?: VariationType,
 ): Promise<FaqEntry[]> {
   const db = getDb();
-  const cacheId = variation ? `${pageId}-${variation}` : pageId;
+  // v2 prefix: 5 Q/R instead of 4, prompted for variety.
+  const baseId = variation ? `${pageId}-${variation}` : pageId;
+  const cacheId = `v2_${baseId}`;
   const cached = await getCached<FaqEntry[]>(db, 'pageFaqs', cacheId, TTL.FAQ);
   if (cached) return cached;
   const faq = await generateFaq({

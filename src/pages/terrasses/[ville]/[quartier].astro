@@ -7,11 +7,13 @@ import RelatedAreas from '@/components/RelatedAreas.astro';
 import FaqList from '@/components/FaqList.astro';
 import MiniMap from '@/components/MiniMap.tsx';
 import LiveSunBanner from '@/components/LiveSunBanner.astro';
+import MethodologyBlurb from '@/components/MethodologyBlurb.astro';
 import { CITIES, findCity, findQuartier } from '@/data/cities';
 import { buildPageData } from '@/lib/buildData';
 import { hasBuildCredentials } from '@/lib/supabase-admin';
 import { absoluteUrl, quartierUrl, villeUrl, SITE } from '@/lib/urls';
 import { breadcrumbList, itemList, webPage, faqPage } from '@/lib/jsonld';
+import { MIN_ESTABLISHMENTS_INDEXABLE } from '@/lib/seo';
 
 export async function getStaticPaths() {
   if (!hasBuildCredentials()) {
@@ -81,8 +83,10 @@ const markers = data.establishments.map((e) => ({
   lng: e.lng,
   sunPercent: e.sun?.sunPercent ?? null,
 }));
+
+const noindex = data.establishments.length < MIN_ESTABLISHMENTS_INDEXABLE;
 ---
-<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld} noindex={noindex}>
   <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
   <h1>Terrasses ensoleillées à {q.name}, {city.name}</h1>
   <LiveSunBanner />
@@ -114,4 +118,6 @@ const markers = data.establishments.map((e) => ({
   </a>
 
   <FaqList items={data.faq} />
+
+  <MethodologyBlurb />
 </Layout>

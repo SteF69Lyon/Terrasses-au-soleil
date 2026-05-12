@@ -1,0 +1,78 @@
+---
+import Layout from '@/components/Layout.astro';
+import Breadcrumb from '@/components/Breadcrumb.astro';
+import { absoluteUrl, SITE } from '@/lib/urls';
+import { breadcrumbList, webPage } from '@/lib/jsonld';
+
+const pageTitle = 'Contact — Terrasses au soleil';
+const pageDesc =
+  'Contacter l\'éditeur de Terrasses au soleil pour signaler une erreur, suggérer une ville ou poser une question.';
+const canonical = absoluteUrl('/contact/');
+
+const crumbs = [
+  { name: 'Accueil', url: SITE + '/' },
+  { name: 'Contact', url: canonical },
+];
+
+const jsonld = [
+  breadcrumbList(crumbs),
+  webPage({ name: pageTitle, description: pageDesc, url: canonical }),
+];
+---
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+  <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
+  <h1>Contact</h1>
+
+  <p>
+    Terrasses au soleil est un projet indépendant maintenu sur du temps
+    personnel. Les retours, suggestions et corrections sont les bienvenus
+    — c'est principalement comme ça que la qualité des données s'améliore.
+  </p>
+
+  <h2>Par email</h2>
+  <p>
+    <a href="mailto:contact@terrasse-au-soleil.fr"><strong>contact@terrasse-au-soleil.fr</strong></a>
+  </p>
+  <p>
+    Vous pouvez écrire en français ou en anglais. Je réponds généralement
+    sous quelques jours.
+  </p>
+
+  <h2>Pour quoi me contacter</h2>
+  <ul>
+    <li>
+      <strong>Signaler une erreur factuelle</strong> sur un établissement
+      (terrasse mal positionnée, adresse fermée, mauvais classement
+      ensoleillement). Précisez si possible le nom et l'adresse.
+    </li>
+    <li>
+      <strong>Demander le retrait</strong> d'une mention concernant votre
+      établissement. Les retraits sont effectués sous quelques jours.
+    </li>
+    <li>
+      <strong>Suggérer une ville</strong> à ajouter. Le site couvre une
+      sélection de villes françaises et s'étoffe progressivement.
+    </li>
+    <li>
+      <strong>Exercer vos droits RGPD</strong> (accès, rectification,
+      effacement). Voir la
+      <a href="/confidentialite/">politique de confidentialité</a>.
+    </li>
+    <li>
+      <strong>Question technique ou bug</strong> sur le calcul
+      d'ensoleillement, la recherche temps réel, l'application mobile.
+    </li>
+  </ul>
+
+  <h2>Corriger les données à la source</h2>
+  <p>
+    Toutes les informations sur les établissements (nom, adresse,
+    présence d'une terrasse) sont issues d'OpenStreetMap. Si une donnée
+    est incorrecte à la source, la modifier directement sur
+    <a href="https://www.openstreetmap.org" rel="noopener" target="_blank">openstreetmap.org</a>
+    permettra à de nombreux services (pas seulement ce site) de
+    bénéficier de la correction. C'est généralement plus efficace que de
+    me contacter, et la modification sera reflétée ici lors du prochain
+    rafraîchissement du cache (sous quelques semaines).
+  </p>
+</Layout>

@@ -1,0 +1,142 @@
+---
+import Layout from '@/components/Layout.astro';
+import Breadcrumb from '@/components/Breadcrumb.astro';
+import { absoluteUrl, SITE } from '@/lib/urls';
+import { breadcrumbList, webPage } from '@/lib/jsonld';
+
+const pageTitle = 'Politique de confidentialité — Terrasses au soleil';
+const pageDesc =
+  "Politique de confidentialité de Terrasses au soleil : quelles données sont collectées, par qui, comment exercer vos droits RGPD.";
+const canonical = absoluteUrl('/confidentialite/');
+
+const crumbs = [
+  { name: 'Accueil', url: SITE + '/' },
+  { name: 'Confidentialité', url: canonical },
+];
+
+const jsonld = [
+  breadcrumbList(crumbs),
+  webPage({ name: pageTitle, description: pageDesc, url: canonical }),
+];
+
+const updated = '12 mai 2026';
+---
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+  <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
+  <h1>Politique de confidentialité</h1>
+
+  <p>
+    <em>Dernière mise à jour : {updated}.</em>
+  </p>
+
+  <p>
+    Cette page décrit, en langage clair, quelles données vous concernant
+    sont susceptibles d'être traitées lors de votre visite sur le site
+    <strong>terrasse-au-soleil.fr</strong>, conformément au Règlement
+    général sur la protection des données (RGPD, règlement UE 2016/679)
+    et à la loi française Informatique et Libertés.
+  </p>
+
+  <h2>Responsable du traitement</h2>
+  <p>
+    Le responsable de traitement est Stéphane Flandrin, éditeur du site
+    (voir <a href="/mentions-legales/">mentions légales</a>). Pour toute
+    question relative à vos données personnelles, vous pouvez écrire à
+    <a href="mailto:contact@terrasse-au-soleil.fr">contact@terrasse-au-soleil.fr</a>.
+  </p>
+
+  <h2>Données traitées et finalités</h2>
+
+  <h3>1. Données de navigation (journaux serveur)</h3>
+  <p>
+    Comme pour tout site web, l'hébergeur conserve des journaux d'accès
+    contenant votre adresse IP, l'horodatage de la requête, la page
+    consultée et l'agent utilisateur. Ces données sont conservées pendant
+    une durée maximale de 12 mois, à des fins de sécurité, de prévention
+    des abus et de statistiques techniques anonymisées. Base légale&nbsp;:
+    intérêt légitime (article 6.1.f du RGPD).
+  </p>
+
+  <h3>2. Recherche en temps réel</h3>
+  <p>
+    Lorsque vous utilisez la recherche en temps réel (page
+    <code>/app/</code>), votre requête textuelle et, si vous l'autorisez,
+    votre géolocalisation approximative sont transmises à un service
+    d'analyse en langage naturel hébergé sur notre infrastructure
+    (Supabase Edge Functions, Hostinger, France). La requête peut être
+    enrichie par un modèle de langage tiers (Gemini, Google) afin
+    d'interpréter votre intention. Aucune donnée personnelle identifiante
+    n'est transmise volontairement. Les requêtes ne sont pas associées à
+    votre identité et ne sont pas conservées au-delà du traitement
+    nécessaire. Base légale&nbsp;: exécution du service demandé.
+  </p>
+
+  <h3>3. Stockage local du navigateur</h3>
+  <p>
+    Le site utilise le <em>localStorage</em> et le <em>sessionStorage</em>
+    de votre navigateur pour conserver des préférences techniques
+    (dernière recherche, position de la carte). Ces données restent
+    strictement sur votre appareil et ne sont jamais transmises au
+    serveur.
+  </p>
+
+  <h3>4. Publicité contextuelle Google AdSense</h3>
+  <p>
+    Le site est susceptible d'afficher des publicités contextuelles
+    fournies par <strong>Google AdSense</strong>. Lorsque la publicité est
+    active, Google peut déposer des cookies ou utiliser des technologies
+    similaires pour proposer des annonces personnalisées et mesurer leurs
+    performances. Google agit en qualité de responsable de traitement
+    distinct pour ces données. Conformément aux exigences européennes,
+    aucun cookie publicitaire n'est déposé sans votre consentement&nbsp;:
+    un bandeau de consentement vous est présenté lors de votre première
+    visite. Vous pouvez modifier votre choix à tout moment.
+  </p>
+  <p>
+    Pour plus d'informations sur la manière dont Google traite vos
+    données, consultez la
+    <a href="https://policies.google.com/technologies/ads" rel="noopener" target="_blank">politique de confidentialité Google relative à la publicité</a>.
+    Vous pouvez gérer vos préférences sur la
+    <a href="https://adssettings.google.com/" rel="noopener" target="_blank">page des paramètres publicitaires Google</a>.
+  </p>
+
+  <h2>Services tiers utilisés</h2>
+  <ul>
+    <li>
+      <strong>OpenStreetMap</strong> (cartographie, tuiles de carte) — peut
+      enregistrer votre IP lors du chargement des tuiles.
+    </li>
+    <li>
+      <strong>Open-Meteo</strong> (météo) — appel API anonyme depuis le
+      navigateur, transmet la latitude et la longitude du point demandé.
+    </li>
+    <li>
+      <strong>Google AdSense</strong> (publicité contextuelle) — soumis à
+      consentement préalable.
+    </li>
+  </ul>
+
+  <h2>Vos droits</h2>
+  <p>
+    Conformément au RGPD, vous disposez d'un droit d'accès, de
+    rectification, d'effacement, de limitation, d'opposition et de
+    portabilité de vos données personnelles. Vous pouvez exercer ces
+    droits en écrivant à
+    <a href="mailto:contact@terrasse-au-soleil.fr">contact@terrasse-au-soleil.fr</a>.
+    Une réponse vous sera apportée dans un délai d'un mois.
+  </p>
+  <p>
+    Vous disposez également du droit d'introduire une réclamation auprès
+    de la
+    <a href="https://www.cnil.fr/" rel="noopener" target="_blank">CNIL</a>
+    (Commission nationale de l'informatique et des libertés), autorité
+    de contrôle française.
+  </p>
+
+  <h2>Modifications</h2>
+  <p>
+    Cette politique peut être modifiée à tout moment pour refléter des
+    évolutions techniques ou réglementaires. La date de dernière mise à
+    jour figure en haut de cette page.
+  </p>
+</Layout>

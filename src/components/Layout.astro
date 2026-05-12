@@ -8,8 +8,9 @@ export interface Props {
   canonical: string;
   ogImage?: string;
   jsonld?: object[];
+  noindex?: boolean;
 }
-const { title, description, canonical, ogImage, jsonld = [] } = Astro.props;
+const { title, description, canonical, ogImage, jsonld = [], noindex = false } = Astro.props;
 // Resolve OG image: explicit ogImage prop > derive from URL path > default.
 function resolveOgImage(path: string | undefined, explicit: string | undefined): string {
   if (explicit) return explicit;
@@ -30,6 +31,7 @@ const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <link rel="alternate" hreflang="fr" href={canonical} />
+    {noindex && <meta name="robots" content="noindex,follow" />}
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
@@ -97,6 +99,9 @@ const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
         <div class="footer-meta">
           <p>
             <a href="/">Accueil</a> · <a href="/blog/">Blog</a> · <a href="/app/">Recherche live</a> · <a href="/sitemap-index.xml">Sitemap</a>
+          </p>
+          <p>
+            <a href="/a-propos/">À propos &amp; méthode</a> · <a href="/contact/">Contact</a> · <a href="/mentions-legales/">Mentions légales</a> · <a href="/confidentialite/">Confidentialité</a>
           </p>
           <p style="color: var(--color-muted); font-size: 0.85rem;">
             Terrasses-au-soleil.fr — données <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © contributeurs. Analyses solaires assistées par IA.

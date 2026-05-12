@@ -37,6 +37,16 @@ h2 { font-size: 1.35rem; margin: 1.5rem 0 0.5rem; }
 
 .ad-slot { margin: 1.5rem 0; padding: 0.5rem; border: 1px dashed var(--color-border); text-align: center; min-height: 90px; color: var(--color-muted); font-size: 0.8rem; }
 
+.methodology-blurb {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin: 2rem 0 1rem;
+}
+.methodology-blurb h2 { margin-top: 0; font-size: 1.2rem; }
+.methodology-blurb p { font-size: 0.95rem; margin: 0.6rem 0; }
+
 .related-areas { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.5rem 0; }
 .related-areas a { background: var(--color-card); border: 1px solid var(--color-border); padding: 0.4rem 0.8rem; border-radius: var(--radius); }
 

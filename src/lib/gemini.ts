@@ -30,16 +30,22 @@ export async function generateIntro(input: IntroInput): Promise<string> {
     ? `Cible spécifique : ${VARIATION_ANGLE[input.variation]} Le texte doit donc parler EXCLUSIVEMENT de ce sous-ensemble, pas de tous les types d'établissements.`
     : "Cible : panorama large couvrant bars, cafés et restaurants avec terrasse.";
 
-  const prompt = `Rédige une introduction de 150 à 200 mots pour une page web SEO. Localité : ${target}, coordonnées ${input.lat},${input.lng}.
+  const prompt = `Rédige une introduction éditoriale de 300 à 400 mots pour une page web. Localité : ${target}, coordonnées ${input.lat},${input.lng}.
 
 ${angle}
 
-Évoque l'ambiance, l'orientation typique des rues, les heures de la journée où le soleil est le mieux. Ton chaleureux, factuel, sans superlatifs creux. Pas d'introduction méta ("Voici un texte..."), pas de conclusion qui commence par "En somme". Démarre directement dans le sujet. N'invente pas de noms d'établissements.`;
+Structure attendue (en texte continu, pas de titres internes) :
+- Premier paragraphe (≈100 mots) : plante le décor du lieu, sa personnalité, son rapport à la rue et à l'extérieur.
+- Deuxième paragraphe (≈100 mots) : où et quand le soleil arrive — orientation typique des rues, exposition générale (sud, ouest...), particularités urbaines qui créent de la lumière ou de l'ombre.
+- Troisième paragraphe (≈100 mots) : les meilleurs créneaux selon l'heure et la saison (déjeuner, après-midi, apéro, dîner), avec des repères concrets.
+- Quatrième paragraphe (≈50-100 mots) : quelle ambiance attendre — type d'établissements dominants, public, atmosphère.
+
+Ton chaleureux, factuel, observé. Pas de superlatifs creux ("incontournable", "véritable joyau", "magique"). Pas d'introduction méta ("Voici un texte..."), pas de conclusion qui commence par "En somme". Démarre directement dans le sujet. N'invente pas de noms d'établissements précis.`;
 
   const res = await generate({
     system: 'Tu rédiges du contenu éditorial chaleureux et factuel pour un guide de terrasses ensoleillées en France.',
     messages: [{ role: 'user', content: prompt }],
-    maxTokens: 600,
+    maxTokens: 1200,
   });
   return res.text;
 }
@@ -68,9 +74,15 @@ export async function generateFaq(input: FaqInput): Promise<FaqEntry[]> {
     ? `Les questions doivent être liées ${VARIATION_FAQ_FOCUS[input.variation]}, pas génériques sur les terrasses.`
     : "Les questions sont génériques sur les terrasses ensoleillées (créneaux, dimanche, bons plans).";
 
-  const prompt = `Rédige 4 questions-réponses fréquentes sur les terrasses ensoleillées à ${target}. ${focus} Questions concrètes qu'un visiteur se poserait. Réponses en 1-2 phrases, pratiques.
+  const prompt = `Rédige 5 questions-réponses fréquentes sur les terrasses ensoleillées à ${target}. ${focus}
 
-Réponds EXCLUSIVEMENT avec un tableau JSON au format :
+Critères :
+- Questions concrètes qu'un visiteur tape vraiment dans Google ("Quelle est la meilleure heure pour avoir le soleil sur les terrasses à ${target} ?", "Y a-t-il des terrasses ouvertes le dimanche à ${target} ?", "Quels quartiers ont les terrasses les mieux exposées ?", "Faut-il réserver en été ?", etc.).
+- 5 questions VARIÉES, pas 5 reformulations de la même.
+- Pas de questions trop générales du type "C'est quoi une terrasse ?".
+- Réponses en 2 à 4 phrases, factuelles et utiles. N'invente pas de noms d'établissements ni de chiffres précis.
+
+Réponds EXCLUSIVEMENT avec un tableau JSON, sans Markdown, au format :
 [{"question":"...","answer":"..."}, ...]`;
 
   const res = await generate({

@@ -1,0 +1,128 @@
+---
+import Layout from '@/components/Layout.astro';
+import Breadcrumb from '@/components/Breadcrumb.astro';
+import { absoluteUrl, SITE } from '@/lib/urls';
+import { breadcrumbList, webPage } from '@/lib/jsonld';
+
+const pageTitle = 'À propos — Terrasses au soleil';
+const pageDesc =
+  "Pourquoi et comment fonctionne Terrasses au soleil : sources de données, méthode de calcul de l'ensoleillement, et qui est derrière le projet.";
+const canonical = absoluteUrl('/a-propos/');
+
+const crumbs = [
+  { name: 'Accueil', url: SITE + '/' },
+  { name: 'À propos', url: canonical },
+];
+
+const jsonld = [
+  breadcrumbList(crumbs),
+  webPage({ name: pageTitle, description: pageDesc, url: canonical }),
+];
+---
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+  <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
+  <h1>À propos de Terrasses au soleil</h1>
+
+  <p>
+    Terrasses au soleil est un projet personnel né d'une frustration banale :
+    arriver sur une terrasse choisie au hasard et la découvrir à l'ombre,
+    coincée entre deux immeubles, alors qu'on cherchait simplement à boire
+    un verre au soleil après le travail. Aucune carte n'indiquait
+    l'ensoleillement réel d'une terrasse à 18 h un mardi de juin. Ce site
+    répond à cette question pour les principales villes françaises.
+  </p>
+
+  <h2>Comment est calculé l'ensoleillement</h2>
+  <p>
+    Pour chaque bar, café et restaurant identifié dans OpenStreetMap comme
+    disposant d'une terrasse (<code>outdoor_seating=yes</code>), on calcule
+    trois éléments :
+  </p>
+  <ol>
+    <li>
+      <strong>La position du soleil</strong> à une date et heure de référence
+      (juin, 17 h heure locale), via la bibliothèque astronomique
+      <em>SunCalc</em>. Pour chaque latitude, on en déduit l'azimut (direction
+      du soleil) et l'altitude (hauteur dans le ciel).
+    </li>
+    <li>
+      <strong>L'orientation probable de la terrasse</strong>. Sans information
+      explicite dans OpenStreetMap, on l'estime à partir du bâti environnant :
+      la façade d'un établissement à l'angle d'une rue donne typiquement sur
+      le trottoir libre. L'analyse est probabiliste, pas exacte.
+    </li>
+    <li>
+      <strong>Les ombres portées par les bâtiments voisins</strong>. À partir
+      des polygones de bâtiments d'OpenStreetMap et de leur hauteur déclarée
+      (ou d'une estimation par nombre d'étages), on projette les ombres dans
+      la direction opposée au soleil et on vérifie si la terrasse tombe dans
+      la zone d'ombre.
+    </li>
+  </ol>
+  <p>
+    Le score d'ensoleillement final est un pourcentage entre 0 et 100 qui
+    combine ces trois facteurs. À cela s'ajoute en temps réel, sur la page
+    de recherche live, la couverture nuageuse fournie par Open-Meteo pour
+    refléter les conditions du jour.
+  </p>
+
+  <h2>Limites et honnêteté de la méthode</h2>
+  <p>
+    La méthode comporte des limites qu'il vaut mieux énoncer clairement :
+  </p>
+  <ul>
+    <li>
+      L'orientation de la terrasse est une estimation. Pour un établissement
+      dont la terrasse est en réalité côté cour, le score peut être faux.
+    </li>
+    <li>
+      La hauteur des bâtiments dans OpenStreetMap est inégale. Quand elle est
+      absente, on l'estime à 3 mètres par étage déclaré, sinon à 10 mètres
+      par défaut.
+    </li>
+    <li>
+      Les terrasses saisonnières (uniquement présentes l'été) ne sont pas
+      distinguées des terrasses permanentes.
+    </li>
+    <li>
+      Le calcul de référence est figé à juin 17 h. Pour une heure ou une
+      saison différente, utilisez la recherche temps réel.
+    </li>
+  </ul>
+  <p>
+    En résumé : c'est un outil d'aide à la décision, pas une vérité absolue.
+    Si une adresse vous semble manifestement mal classée, signalez-le par
+    email (voir la page <a href="/contact/">contact</a>).
+  </p>
+
+  <h2>Sources de données</h2>
+  <p>
+    L'intégralité des établissements et des bâtiments provient
+    d'<a href="https://www.openstreetmap.org" rel="noopener" target="_blank">OpenStreetMap</a>,
+    une carte libre éditée par des dizaines de milliers de contributeurs.
+    Les données sont récupérées via les API Overpass et Nominatim. Les
+    conditions météo sont fournies par
+    <a href="https://open-meteo.com" rel="noopener" target="_blank">Open-Meteo</a>,
+    une API météo gratuite et sans clé. Les calculs astronomiques utilisent
+    <a href="https://github.com/mourner/suncalc" rel="noopener" target="_blank">SunCalc</a>.
+  </p>
+
+  <h2>Pourquoi un projet indépendant</h2>
+  <p>
+    Terrasses au soleil n'est ni une plateforme de réservation, ni un
+    comparateur sponsorisé, ni un guide d'avis. C'est un projet
+    indépendant, sans partenariat avec aucun établissement. Aucune adresse
+    ne paie pour apparaître ou pour être mieux classée — le tri se fait
+    uniquement sur le score d'ensoleillement calculé. Les pages affichent
+    de la publicité contextuelle Google AdSense pour couvrir les coûts
+    d'hébergement et d'API, sans influence sur le contenu ou le classement.
+  </p>
+
+  <h2>Qui est derrière</h2>
+  <p>
+    Le site est édité par Stéphane Flandrin, développeur indépendant basé
+    en France. Pour toute question, retour ou correction, voir la page
+    <a href="/contact/">contact</a> ou les
+    <a href="/mentions-legales/">mentions légales</a>.
+  </p>
+</Layout>

@@ -5,6 +5,7 @@ import TerraceCard from '@/components/TerraceCard.astro';
 import AdSlot from '@/components/AdSlot.astro';
 import FaqList from '@/components/FaqList.astro';
 import LiveSunBanner from '@/components/LiveSunBanner.astro';
+import MethodologyBlurb from '@/components/MethodologyBlurb.astro';
 import type { City } from '@/data/cities';
 import { buildPageData } from '@/lib/buildData';
 import { absoluteUrl, variationUrl, villeUrl, SITE, type VariationType } from '@/lib/urls';
@@ -76,4 +77,6 @@ const jsonld = [
   </a>
 
   <FaqList items={data.faq} />
+
+  <MethodologyBlurb />
 </Layout>

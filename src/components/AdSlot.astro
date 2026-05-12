@@ -6,19 +6,16 @@ export interface Props {
 const { slotId, format = 'auto' } = Astro.props;
 const client = import.meta.env.PUBLIC_ADSENSE_CLIENT ?? '';
 
-// A slot ID made of the same digit repeated (e.g. "1111111111", "2222222222")
-// is a placeholder we shipped before having real AdSense unit IDs. While the
-// site runs with Google "Auto Ads" enabled, we don't want these placeholder
-// <ins> tags to compete with auto-placement — they would just emit invalid
-// ad-request warnings without ever loading anything. So we render no <ins>
-// at all in that case, but still keep the visual placeholder for layout
-// inspection during development. Auto Ads then has a clean canvas to inject
-// its own slots.
+// A slot ID made of the same digit repeated (e.g. "1111111111") is a
+// placeholder that hasn't been wired to a real AdSense ad unit yet. We
+// render nothing at all in that case — no visible "(auto)" placeholder
+// either — so that AdSense reviewers don't see empty boxes that suggest
+// broken or unfilled ad inventory.
 const isPlaceholderSlot = /^(\d)\1{4,}$/.test(slotId);
 
 const enabled = Boolean(client) && !isPlaceholderSlot;
 ---
-{enabled ? (
+{enabled && (
   <div class="ad-slot">
     <ins class="adsbygoogle"
          style="display:block"
@@ -30,6 +27,4 @@ const enabled = Boolean(client) && !isPlaceholderSlot;
       (adsbygoogle = window.adsbygoogle || []).push({});
     </script>
   </div>
-) : (
-  <div class="ad-slot" aria-hidden="true">emplacement publicitaire (auto)</div>
 )}

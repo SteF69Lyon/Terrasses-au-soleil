@@ -1,0 +1,112 @@
+---
+import Layout from '@/components/Layout.astro';
+import Breadcrumb from '@/components/Breadcrumb.astro';
+import { absoluteUrl, SITE } from '@/lib/urls';
+import { breadcrumbList, webPage } from '@/lib/jsonld';
+
+const pageTitle = 'Mentions légales — Terrasses au soleil';
+const pageDesc =
+  'Mentions légales de Terrasses au soleil : éditeur, hébergeur, propriété intellectuelle et coordonnées de contact.';
+const canonical = absoluteUrl('/mentions-legales/');
+
+const crumbs = [
+  { name: 'Accueil', url: SITE + '/' },
+  { name: 'Mentions légales', url: canonical },
+];
+
+const jsonld = [
+  breadcrumbList(crumbs),
+  webPage({ name: pageTitle, description: pageDesc, url: canonical }),
+];
+---
+<Layout title={pageTitle} description={pageDesc} canonical={canonical} jsonld={jsonld}>
+  <Breadcrumb items={crumbs.map(({ name, url }) => ({ name, url }))} />
+  <h1>Mentions légales</h1>
+
+  <p>
+    Conformément aux dispositions de la loi n° 2004-575 du 21 juin 2004
+    pour la confiance dans l'économie numérique (LCEN), il est précisé aux
+    utilisateurs du site
+    <a href="https://terrasse-au-soleil.fr">terrasse-au-soleil.fr</a>
+    l'identité des différents intervenants dans le cadre de sa réalisation
+    et de son suivi.
+  </p>
+
+  <h2>Éditeur du site</h2>
+  <p>
+    Le site Terrasses au soleil est édité, à titre individuel, par&nbsp;:
+  </p>
+  <ul>
+    <li><strong>Stéphane Flandrin</strong></li>
+    <li>Auto-entrepreneur, France</li>
+    <li>Contact : <a href="mailto:contact@terrasse-au-soleil.fr">contact@terrasse-au-soleil.fr</a></li>
+  </ul>
+  <p>
+    Directeur de la publication : Stéphane Flandrin.
+  </p>
+
+  <h2>Hébergement</h2>
+  <p>
+    Le site est hébergé par&nbsp;:
+  </p>
+  <ul>
+    <li><strong>Hostinger International Ltd.</strong></li>
+    <li>61 Lordou Vironos Street, 6023 Larnaca, Chypre</li>
+    <li>Site : <a href="https://www.hostinger.fr" rel="noopener" target="_blank">https://www.hostinger.fr</a></li>
+  </ul>
+
+  <h2>Propriété intellectuelle</h2>
+  <p>
+    Les textes éditoriaux, le code source, la conception graphique et
+    l'identité visuelle du site sont la propriété exclusive de l'éditeur.
+    Toute reproduction, représentation, modification ou exploitation
+    partielle ou totale du contenu sans autorisation préalable et écrite
+    est interdite et constituerait une contrefaçon sanctionnée par les
+    articles L.335-2 et suivants du Code de la propriété intellectuelle.
+  </p>
+
+  <h2>Sources de données tierces</h2>
+  <p>
+    Les données cartographiques et les informations sur les établissements
+    (noms, adresses, polygones de bâtiments) proviennent
+    d'<a href="https://www.openstreetmap.org" rel="noopener" target="_blank">OpenStreetMap</a>,
+    diffusées sous licence
+    <a href="https://opendatacommons.org/licenses/odbl/" rel="noopener" target="_blank">ODbL</a>
+    par les contributeurs OpenStreetMap. Les données météorologiques
+    proviennent d'<a href="https://open-meteo.com" rel="noopener" target="_blank">Open-Meteo</a>,
+    diffusées sous licence CC-BY 4.0.
+  </p>
+
+  <h2>Limitation de responsabilité</h2>
+  <p>
+    Les informations diffusées sur le site (horaires d'ouverture,
+    ensoleillement, présence d'une terrasse) sont fournies à titre
+    indicatif et résultent d'un traitement algorithmique de données
+    publiques. Elles peuvent comporter des erreurs ou être obsolètes.
+    L'éditeur ne saurait être tenu responsable des dommages directs ou
+    indirects résultant de l'utilisation de ces informations. Il appartient
+    à chaque utilisateur de vérifier les conditions réelles auprès de
+    l'établissement concerné.
+  </p>
+
+  <h2>Liens hypertextes</h2>
+  <p>
+    Le site peut contenir des liens vers des sites tiers. L'éditeur n'a
+    aucun contrôle sur le contenu de ces sites et décline toute
+    responsabilité quant à leurs informations et pratiques.
+  </p>
+
+  <h2>Données personnelles</h2>
+  <p>
+    Le traitement des données personnelles est détaillé dans la
+    <a href="/confidentialite/">politique de confidentialité</a>.
+  </p>
+
+  <h2>Signalement d'un contenu</h2>
+  <p>
+    Pour signaler une erreur factuelle, une donnée obsolète ou demander le
+    retrait d'une mention concernant un établissement, contactez l'éditeur
+    à
+    <a href="mailto:contact@terrasse-au-soleil.fr">contact@terrasse-au-soleil.fr</a>.
+  </p>
+</Layout>

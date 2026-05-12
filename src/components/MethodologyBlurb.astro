@@ -1,0 +1,37 @@
+---
+// Static editorial block included at the bottom of every city/quartier page.
+// Adds substantive, trust-building content beyond the AI-generated intro,
+// and provides internal links to /a-propos/ and /confidentialite/.
+---
+<section class="methodology-blurb">
+  <h2>Comment l'ensoleillement est calculé sur cette page</h2>
+  <p>
+    Pour chaque adresse listée ci-dessus, le score d'ensoleillement
+    combine trois éléments. D'abord la <strong>position du soleil</strong>
+    à une heure de référence (juin, 17 h), calculée par la bibliothèque
+    astronomique <em>SunCalc</em> à partir de la latitude et de la
+    longitude de l'établissement. Ensuite, l'<strong>orientation
+    probable de la terrasse</strong>, estimée à partir des bâtiments
+    voisins extraits d'OpenStreetMap — une terrasse en angle de rue
+    donne typiquement sur le trottoir libre. Enfin, les <strong>ombres
+    portées par le bâti environnant</strong>, projetées dans la
+    direction opposée au soleil à partir de la hauteur déclarée de
+    chaque immeuble.
+  </p>
+  <p>
+    Le résultat est un pourcentage entre 0 et 100, qui répond à la
+    question : « si je m'assieds là à 17 h en été, quelle part de la
+    terrasse sera au soleil ? ». Pour un calcul à l'heure et à la date
+    réelles, qui prend en plus en compte la couverture nuageuse,
+    utilisez la <a href="/app/">recherche en temps réel</a>.
+  </p>
+  <p>
+    La méthode a ses limites (orientation estimée, hauteurs de
+    bâtiments parfois manquantes, terrasses saisonnières non
+    distinguées), exposées en détail sur la page
+    <a href="/a-propos/">À propos &amp; méthode</a>. Les données
+    cartographiques proviennent d'OpenStreetMap, sous licence ODbL ;
+    aucun établissement ne paie pour apparaître ou pour être mieux
+    classé.
+  </p>
+</section>
