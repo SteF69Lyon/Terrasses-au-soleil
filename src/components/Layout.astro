@@ -46,7 +46,11 @@ const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
     <meta name="twitter:image" content={siteOgImage} />
 
     {jsonld.map((ld) => (
-      <script is:inline type="application/ld+json" set:html={JSON.stringify(ld)} />
+      <script
+        is:inline
+        type="application/ld+json"
+        set:html={JSON.stringify(ld).replace(/</g, '\\u003c')}
+      />
     ))}
 
     {adsenseClient && (

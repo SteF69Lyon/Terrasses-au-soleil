@@ -1,6 +1,14 @@
 
 import React, { useState } from 'react';
 
+// ⚠️ INTENTIONAL SIMULATION — NOT a real payment flow.
+// This component fakes a Stripe checkout: it never contacts Stripe, never
+// validates the card, and grants "Pro" after a setTimeout. Anyone can become
+// Pro for free. That is acceptable ONLY while "Pro" status does nothing more
+// than hide ads. Before wiring real monetisation, replace this with a true
+// Stripe integration (server-side checkout session + webhook) and make sure
+// no sensitive feature is gated on the client-trusted `isSubscribed` flag.
+
 interface StripeSimulationProps {
   onSuccess: () => void;
   onCancel: () => void;

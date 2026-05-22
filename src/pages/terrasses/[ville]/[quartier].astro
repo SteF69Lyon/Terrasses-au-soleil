@@ -17,7 +17,7 @@ import { MIN_ESTABLISHMENTS_INDEXABLE } from '@/lib/seo';
 
 export async function getStaticPaths() {
   if (!hasBuildCredentials()) {
-    console.warn('[seo] Missing SUPABASE credentials or GEMINI_BUILD_KEY — skipping quartier pages.');
+    console.warn('[seo] Missing SUPABASE credentials or AI provider key — skipping quartier pages.');
     return [];
   }
   const paths: { params: { ville: string; quartier: string } }[] = [];

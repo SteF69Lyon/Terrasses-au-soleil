@@ -37,3 +37,27 @@ export async function fetchCloudCoverFactor(input: CloudCoverInput): Promise<num
   const pct = await fetchCloudCover(input);
   return pct == null ? null : pct / 100;
 }
+
+/**
+ * Fetch the full 24-hour cloud-cover series (percentages 0-100, UTC-indexed)
+ * for the given date. Returns null on error or if the series isn't exactly
+ * 24 entries. Used by the live client to render the hourly sun chart.
+ */
+export async function fetchHourlyCloudCover(
+  input: Pick<CloudCoverInput, 'lat' | 'lng' | 'date'>,
+): Promise<number[] | null> {
+  const isoDate = input.date.toISOString().split('T')[0];
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${input.lat}&longitude=${input.lng}` +
+    `&hourly=cloudcover&start_date=${isoDate}&end_date=${isoDate}&timezone=UTC`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { hourly?: { cloudcover: number[] } };
+    const covers = data.hourly?.cloudcover;
+    if (!covers || covers.length !== 24) return null;
+    return covers;
+  } catch {
+    return null;
+  }
+}

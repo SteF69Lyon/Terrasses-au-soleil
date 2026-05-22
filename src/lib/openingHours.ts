@@ -88,7 +88,10 @@ export function isOpenAt(schedule: DayRange[], date: Date): boolean {
   for (const r of schedule) {
     if (!r.days.has(dayIdx)) continue;
     for (const [start, end] of r.ranges) {
-      if (end > start) {
+      if (end >= start) {
+        // Normal range. A zero-width range (end === start) yields false here,
+        // which is the safe default — it must NOT fall through to the
+        // midnight-crossing branch where it would read as "always open".
         if (minutes >= start && minutes < end) return true;
       } else {
         // Midnight crossing, e.g., 22:00-02:00

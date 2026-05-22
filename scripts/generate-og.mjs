@@ -1,33 +1,26 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
 
-// Re-implementing the cities seed here (script runs before TS transpile).
-// Must stay in sync with src/data/cities.ts — keep slugs + display names aligned.
-const CITIES = [
-  { slug: 'paris', name: 'Paris' },
-  { slug: 'lyon', name: 'Lyon' },
-  { slug: 'marseille', name: 'Marseille' },
-  { slug: 'bordeaux', name: 'Bordeaux' },
-  { slug: 'toulouse', name: 'Toulouse' },
-  { slug: 'nice', name: 'Nice' },
-  { slug: 'nantes', name: 'Nantes' },
-  { slug: 'strasbourg', name: 'Strasbourg' },
-  { slug: 'lille', name: 'Lille' },
-  { slug: 'montpellier', name: 'Montpellier' },
-  { slug: 'rennes', name: 'Rennes' },
-  { slug: 'annecy', name: 'Annecy' },
-  { slug: 'aix-en-provence', name: 'Aix-en-Provence' },
-  { slug: 'biarritz', name: 'Biarritz' },
-  { slug: 'la-rochelle', name: 'La Rochelle' },
-  { slug: 'grenoble', name: 'Grenoble' },
-  { slug: 'clermont-ferrand', name: 'Clermont-Ferrand' },
-  { slug: 'dijon', name: 'Dijon' },
-  { slug: 'tours', name: 'Tours' },
-  { slug: 'angers', name: 'Angers' },
-  { slug: 'reims', name: 'Reims' },
-  { slug: 'le-havre', name: 'Le Havre' },
-];
+// Derive the city list directly from src/data/cities.ts so OG cards never
+// drift out of sync with the real seed (this was previously a hand-copied
+// 22-city array that silently went stale when the seed grew to 52).
+//
+// The script runs before TS transpile, so we parse the source with a regex
+// rather than importing it. City entries (unlike quartier entries) always
+// have a `region:` field right after `name:` — that disambiguates them.
+async function loadCities() {
+  const src = await readFile(path.resolve('src/data/cities.ts'), 'utf-8');
+  const re = /slug:\s*'([^']+)',\s*name:\s*'([^']+)',\s*region:/g;
+  const cities = [];
+  for (const m of src.matchAll(re)) {
+    cities.push({ slug: m[1], name: m[2] });
+  }
+  if (cities.length === 0) {
+    throw new Error('generate-og: parsed 0 cities from src/data/cities.ts — regex drift?');
+  }
+  return cities;
+}
 
 const W = 1200;
 const H = 630;
@@ -93,6 +86,8 @@ async function main() {
   const outDir = path.resolve('public/og');
   await mkdir(outDir, { recursive: true });
 
+  const cities = await loadCities();
+
   // Default (landing)
   {
     const svg = buildSvg({
@@ -104,7 +99,7 @@ async function main() {
     console.log('✓ public/og/default.png');
   }
 
-  for (const city of CITIES) {
+  for (const city of cities) {
     const svg = buildSvg({
       title: `Terrasses ensoleillées`,
       subtitle: `à ${city.name}`,
@@ -114,7 +109,7 @@ async function main() {
     console.log(`✓ public/og/${city.slug}.png`);
   }
 
-  console.log(`\nGenerated ${CITIES.length + 1} OG cards in public/og/`);
+  console.log(`\nGenerated ${cities.length + 1} OG cards in public/og/`);
 }
 
 main().catch((err) => {

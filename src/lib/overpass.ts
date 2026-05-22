@@ -17,6 +17,16 @@ export interface Establishment {
   openingHours: string | null;
 }
 
+/**
+ * Only allow http(s) URLs. OSM tags are publicly editable, so a `website`
+ * value of `javascript:…` would otherwise become a clickable XSS link once
+ * rendered as <a href>.
+ */
+function safeHttpUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  return /^https?:\/\//i.test(raw.trim()) ? raw.trim() : null;
+}
+
 function imageUrlFromTags(tags: Record<string, string>): string | null {
   const direct = tags.image;
   if (direct && /^https?:\/\//.test(direct)) return direct;
@@ -90,9 +100,11 @@ async function fetchWithRetry(query: string): Promise<{ elements: RawElement[] }
       });
       if (res.ok) return (await res.json()) as { elements: RawElement[] };
       const bodyText = await res.text().catch(() => '');
-      const isRetryable = res.status >= 500 || res.status === 429 || res.status === 408;
       lastError = new Error(`Overpass HTTP ${res.status} at ${endpoint}: ${bodyText.slice(0, 200)}`);
-      if (!isRetryable) throw lastError;
+      const isRetryable = res.status >= 500 || res.status === 429 || res.status === 408;
+      // Non-retryable (4xx other than 408/429): stop now instead of burning
+      // the remaining attempts on a request that will never succeed.
+      if (!isRetryable) break;
     } catch (e: any) {
       lastError = e instanceof Error ? e : new Error(String(e));
     }
@@ -123,7 +135,7 @@ export async function fetchEstablishments(bbox: BBox): Promise<Establishment[]> 
       lat: coords.lat,
       lng: coords.lng,
       address: addressOf(tags),
-      website: tags.website ?? tags['contact:website'] ?? null,
+      website: safeHttpUrl(tags.website ?? tags['contact:website']),
       outdoorSeating: tags.outdoor_seating === 'yes',
       imageUrl: imageUrlFromTags(tags),
       openingHours: tags.opening_hours ?? null,

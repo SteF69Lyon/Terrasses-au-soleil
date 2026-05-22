@@ -68,10 +68,9 @@ export function computeSunScore(input: SunScoreInput): SunScoreResult {
     : cloudCover < 0.6
       ? 'ciel partiellement nuageux'
       : 'ciel couvert';
+  // altitudeDeg <= 0 already returned early above — no need to handle it here.
   let explanation: string;
-  if (altitudeDeg <= 0) {
-    explanation = 'Soleil sous l\'horizon.';
-  } else if (cloudCover >= 0.9) {
+  if (cloudCover >= 0.9) {
     explanation = `Ciel couvert, soleil masqué. Terrasse orientée ${cardinal}.`;
   } else if (sunPercent > 65) {
     explanation = `Terrasse orientée ${cardinal}, soleil bien placé (${Math.round(altitudeDeg)}° d'élévation), ${weatherNote}.`;
@@ -99,7 +98,8 @@ function cardinalLabel(deg: number): string {
 }
 
 function cardinalShort(deg: number): string {
-  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  // French abbreviations, consistent with cardinalLabel() (sud-ouest → SO).
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
   return dirs[Math.round(normalizeAngle(deg) / 45) % 8];
 }
 

@@ -1,11 +1,22 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { hasAnyAIProvider } from './ai-router';
 
 let cachedClient: SupabaseClient | null = null;
 
+/**
+ * True when the build runner can generate the dynamic SEO pages: it needs
+ * Supabase (cache) AND at least one working AI provider.
+ *
+ * IMPORTANT: this must NOT hard-require GEMINI_BUILD_KEY specifically — that
+ * key is invalid/blocked and the AI router falls back to Anthropic / OpenAI /
+ * GEMINI_API_KEY. Gating on GEMINI_BUILD_KEY alone meant that removing the
+ * (apparently useless) secret would silently drop all ~330 dynamic pages
+ * from the build. We delegate the AI check to the router's own logic.
+ */
 export function hasBuildCredentials(): boolean {
   return (
     Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) &&
-    Boolean(process.env.GEMINI_BUILD_KEY)
+    hasAnyAIProvider()
   );
 }
 
